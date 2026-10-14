@@ -12,7 +12,7 @@ Read dev/PLAN.md first (architecture, the 6 tools, possible / not possible).
   Host is .NET AutoDispatch → call with raw GetIDsOfNames/Invoke (`conn.Late`), comtypes lazybind fails.
 - `setup/setup.ps1` + `Setup.bat`: uv → Python 3.10 venv `%LOCALAPPDATA%\NextraAxisVM\venv` from
   `requirements.lock.txt` (UV_LINK_MODE=copy needed) → tlb wrapper → add-on copy → Node check. Verified OK (~1 min).
-- Engine written so far: `engine/worker.py`, `engine/nextra_axisvm/{core,win,conn,memory}.py` (NOT yet run/tested).
+- Engine: worker, core, win, conn, memory, apidocs (typelib index+search, verified), comkit (verified live: nodes, catalog material/section, beam/rib, plate domain, supports, releases, cases, self-weight, line/area/nodal loads, combo; LinearAnalysis(3) ok). Beams on slab edges become ribs (use RLoadRibDistributed).
 
 ## Next steps
 1. `engine/nextra_axisvm/__init__.py`, `apidocs.py` (typelib index via comtypes.typeinfo LoadTypeLibEx(gen.AxisVM.typelib_path):
