@@ -1,0 +1,10 @@
+obj/
+.vs/
+__pycache__/
+*.user
+*.bak
+dist/
+test/out/
+test/_tmp/
+/.claude/
+/.codex/
