@@ -18,6 +18,7 @@ from nx import Client  # noqa: E402
 
 OUT = os.path.join(ROOT, "test", "out")
 os.makedirs(OUT, exist_ok=True)
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")     # check names contain ≈, ² …; cp1252 consoles
 fails, steps, log = 0, 0, []
 
 
@@ -37,7 +38,7 @@ def num(pattern, text):
 
 
 def main():
-    c = Client()
+    c = Client(env={"NEXTRA_AXISVM_ALLOW_LAUNCH": "1"} if "--launch" in sys.argv else None)
     call = lambda tool, args=None: c.call(tool, args or {})
     if "--launch" in sys.argv:
         t, _, e = call("edit", {"launch": True})

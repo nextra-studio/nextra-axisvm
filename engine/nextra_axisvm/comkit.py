@@ -50,8 +50,9 @@ class NodeIndex:
         self.grid.setdefault(self._key(p), []).append((i, p))
         self.coord[i] = p
 
-    def on_segment(self, a, b):
-        """Existing nodes strictly between nodes a and b on the straight segment, ordered from a to b."""
+    def on_segment(self, a, b, among=None):
+        """Existing nodes (or only those in `among`) strictly between nodes a and b on the straight segment,
+        ordered from a to b."""
         p, q = self.coord.get(a), self.coord.get(b)
         if p is None or q is None:
             return []
@@ -60,7 +61,8 @@ class NodeIndex:
         if L2 <= 0:
             return []
         out = []
-        for i, r in self.coord.items():
+        cand = self.coord.items() if among is None else ((i, self.coord[i]) for i in among if i in self.coord)
+        for i, r in cand:
             if i in (a, b):
                 continue
             t = sum((r[k] - p[k]) * d[k] for k in range(3)) / L2
@@ -89,6 +91,29 @@ class NodeIndex:
         self._put(i, p)
         self.created.append(i)
         return i
+
+    def add_many(self, points):
+        """Create every missing point with ONE Nodes.BulkAdd (instead of one COM call per node)."""
+        new = []
+        seen = NodeIndex.__new__(NodeIndex)
+        seen.tol, seen.grid, seen.coord = self.tol, {}, {}
+        for p in points:
+            p = tuple(float(c) for c in p)
+            if not self.find(p) and not seen.find(p):
+                seen._put(len(new) + 1, p)
+                new.append(p)
+        if not new:
+            return
+        res = self.model.Nodes.BulkAdd([rec("RPoint3d", x=p[0], y=p[1], z=p[2]) for p in new])
+        ids = list(res[0]) if isinstance(res, tuple) else []
+        if code(res) is None or code(res) <= 0 or len(ids) != len(new) or any(i <= 0 for i in ids):
+            for p in new:                      # bulk refused: one by one, with per-node errors
+                if not self.find(p):
+                    self.get(p)
+            return
+        for i, p in zip(ids, new):
+            self._put(i, p)
+            self.created.append(i)
 
 
 def chain(model, ni, n1, n2, split=True):
@@ -269,6 +294,19 @@ def line_support(model, lid, spec, domains=()):
                  "line support on l%d" % lid)
 
 
+def release_dofs(spec):
+    """'hinge'/'pin' -> ('yy','zz') · 'rigid' -> () · 'free:yy,zz' -> ('yy','zz'); anything else raises."""
+    s = spec.strip().lower()
+    free = {"hinge": ("yy", "zz"), "pin": ("yy", "zz"), "pinned": ("yy", "zz"), "rigid": ()}.get(s)
+    if free is None:
+        word, _, dofs = s.partition(":")
+        free = tuple(x.strip() for x in dofs.split(",") if x.strip())
+        if word != "free" or not free or any(x not in ("x", "y", "z", "xx", "yy", "zz") for x in free):
+            raise NxError("release '%s' not understood" % spec,
+                          "hinge | rigid | free:yy,zz (dofs x y z xx yy zz). Semi-rigid springs: run with SetStartReleases")
+    return free
+
+
 def releases(model, lid, start=None, end=None):
     """start/end: 'hinge' (all rotations free except torsion) | 'pin' (same) | 'free:yy,zz' | 'rigid'."""
     a = ax()
@@ -276,11 +314,8 @@ def releases(model, lid, start=None, end=None):
     for which, spec in (("Start", start), ("End", end)):
         if not spec:
             continue
+        free = release_dofs(spec)
         cur = getattr(ln, "Get%sReleases" % which)()[0]
-        s = spec.lower()
-        free = {"hinge": ("yy", "zz"), "pin": ("yy", "zz"), "pinned": ("yy", "zz"), "rigid": ()}.get(s)
-        if free is None:
-            free = tuple(x.strip() for x in s.split(":", 1)[-1].split(",") if x.strip())
         for dof in ("x", "y", "z", "xx", "yy", "zz"):
             r = getattr(cur, dof)
             r.ReleaseType = a.rtHinged if dof in free else a.rtRigid
@@ -304,15 +339,16 @@ def nodal_force(model, case, node, F):
     return check(model.Loads.AddNodalForce(r), "nodal load on n%d" % node)
 
 
-def beam_load(model, case, lid, q, local=False):
-    """Uniform distributed load on a beam/rib [kN/m] over the whole length; q = (qx, qy, qz)."""
+def beam_load(model, case, lid, q, local=False, projected=False):
+    """Uniform distributed load on a beam/rib [kN/m] over the whole length; q = (qx, qy, qz).
+    projected: q per m of the length projected perpendicular to the load (e.g. snow on a rafter)."""
     a = ax()
     ln = model.Lines.Item[lid]
     rib = ln.LineType == a.ltRib
     # Position1/2 are absolute distances from the start node in m (not ratios): load the whole length
     vals = dict(LoadCaseId=case, LineId=lid, qx1=q[0], qy1=q[1], qz1=q[2], qx2=q[0], qy2=q[1], qz2=q[2],
                 SystemGLR=a.sysLocal if local else a.sysGlobal, Position1=0.0, Position2=float(ln.Length),
-                DistributionType=a.brdtLength, Trapezoid=a.lbFalse)
+                DistributionType=a.brdtProjected if projected else a.brdtLength, Trapezoid=a.lbFalse)
     r = getattr(a, "RLoadRibDistributed" if rib else "RLoadBeamDistributed")()
     names = {f[0] for f in r._fields_}
     for f, v in vals.items():
@@ -334,12 +370,13 @@ def self_weight(model, case, lines=None, domains=None):
     """Self-weight of the given (default: all) beams/ribs/trusses and domains."""
     a = ax()
     n = 0
-    lines = range(1, model.Lines.Count + 1) if lines is None else lines
+    lines = list(range(1, model.Lines.Count + 1) if lines is None else lines)
     domains = range(1, model.Domains.Count + 1) if domains is None else domains
-    for lid in lines:
-        t = model.Lines.Item[lid].LineType
-        fn = {a.ltBeam: model.Loads.AddBeamSelfWeight, a.ltRib: model.Loads.AddRibSelfWeight,
-              a.ltTruss: model.Loads.AddTrussSelfWeight}.get(t)
+    types = [t.LineType for t in model.Lines.BulkGetAttr_V161(lines)[0]] if lines else []   # one read, not one per line
+    adders = {a.ltBeam: model.Loads.AddBeamSelfWeight, a.ltRib: model.Loads.AddRibSelfWeight,
+              a.ltTruss: model.Loads.AddTrussSelfWeight}
+    for lid, t in zip(lines, types):
+        fn = adders.get(t)
         if fn and code(fn(lid, case)) > 0:
             n += 1
     for did in domains:

@@ -7,6 +7,7 @@ scope results          case:'G' | combo:'ULS' (name or number); kind summary|dis
 scope catalog          materials / cross-sections in the AxisVM catalog: 'IPE' 'HEB 2*' 'material C30*' 'tables'
 scope api | docs | library | status | instances
 """
+import math
 import re
 
 from . import conn, memory
@@ -46,7 +47,7 @@ def run(a, r):
             r.line("run one: run {lib:'name', args:{…}} · read: query {scope:'library', name}")
     elif scope == "status":
         from .core import status
-        text, imgs = status({"answer": a.str("answer")})
+        text, imgs = status({"answer": a.str("answer"), "instance": a.str("instance")})
         r.line(text)
         r.images += imgs
     elif scope == "instances":
@@ -71,6 +72,8 @@ def model_query(a, r):
         return
     nodes, lines, doms = select(snap, filt, m)
     limit, offset = a.int("limit", 60), a.int("offset", 0)
+    if limit < 1 or offset < 0:
+        raise NxError("limit must be ≥ 1 and offset ≥ 0")
     rows = [("n", i) for i in nodes] + [("l", i) for i in lines] + [("d", i) for i in doms]
     total = len(rows)
     if total == 0:
@@ -270,6 +273,7 @@ def detail(m, snap, kind, i, r):
         r.line(describe_line(snap, i))
         ln = m.Lines.Item[i]
         try:
+            r.line("  local x: start n%d → end n%d" % (ln.StartNode, ln.EndNode))
             for which in ("Start", "End"):
                 rel = getattr(ln, "Get%sReleases" % which)()[0]
                 free = [d for d in ("x", "y", "z", "xx", "yy", "zz") if getattr(rel, d).ReleaseType != a.rtRigid]
@@ -380,6 +384,8 @@ def results_query(a, r):
         label, by = "combo '%s'" % snap.combos[cid], "LoadCombinationId"
     at = A.atLinearStatic if (a.str("analysis", "linear") or "linear").startswith("lin") else A.atNonLinearStatic
     kind = (a.str("kind", "summary") or "summary").lower()
+    if kind not in RESULT_KINDS:
+        raise NxError("kind '%s' unknown" % kind, "summary | displacements | reactions | forces | surface")
     filt = a.str("filter", "") or ""
     N, L, D = select(snap, filt) if filt else (list(range(1, len(snap.nodes))), list(range(1, len(snap.lines))), list(range(1, len(snap.domains))))
     if filt and not N and not L and not D:
@@ -407,29 +413,45 @@ def results_query(a, r):
         except Exception as e:
             r.line("  displacements unavailable: %s" % conn.explain_com_error(e))
     if kind in ("summary", "reactions", "supports"):
-        try:
-            res = getattr(R.Forces, "GetAllNodalSupportForcesBy" + by)(cid, 0, at)
-            vals = res[0]
-            if _code(res) > 0 and vals:
-                ok = True
-                sup_node = {}
-                for n, sids in snap.nsup.items():
-                    for sid in sids:
-                        sup_node[sid] = n
-                tot = [0.0] * 6
-                rows = []
-                for sid, v in enumerate(vals, 1):
-                    f = [v.Rx, v.Ry, v.Rz, v.Rxx, v.Ryy, v.Rzz]
-                    tot = [t + x for t, x in zip(tot, f)]
-                    n = sup_node.get(sid, 0)
-                    if not filt or n in N:
-                        rows.append((sid, n, f))
-                r.line("  reactions sum: Rx %s Ry %s Rz %s kN" % (num(tot[0], 2), num(tot[1], 2), num(tot[2], 2)))
-                if kind != "summary" or len(rows) <= 8:
-                    for sid, n, f in rows[: a.int("limit", 40)]:
-                        r.line("  ns%d n%d: R %s %s %s kN · M %s %s %s kNm" % (sid, n, *[num(x, 2) for x in f]))
-        except Exception as e:
-            r.line("  reactions unavailable: %s" % conn.explain_com_error(e))
+        nodal = line = None
+        rows = []
+        if snap.nsup:
+            try:
+                res = getattr(R.Forces, "GetAllNodalSupportForcesBy" + by)(cid, 0, at)
+                vals = res[0]
+                if _code(res) > 0 and vals:
+                    sup_node = {}
+                    for n, sids in snap.nsup.items():
+                        for sid in sids:
+                            sup_node[sid] = n
+                    nodal = [0.0] * 3
+                    for sid, v in enumerate(vals, 1):
+                        f = [v.Rx, v.Ry, v.Rz, v.Rxx, v.Ryy, v.Rzz]
+                        nodal = [t + x for t, x in zip(nodal, f)]
+                        n = sup_node.get(sid, 0)
+                        if not filt or n in N:
+                            rows.append((sid, n, f))
+            except Exception as e:
+                r.line("  nodal reactions unavailable: %s" % conn.explain_com_error(e))
+        if snap.lsup:
+            try:
+                line = _line_support_sum(R.Forces, by, cid, at)
+            except Exception as e:
+                r.line("  line support reactions unavailable: %s" % conn.explain_com_error(e))
+        if nodal or line:
+            ok = True
+            tot = [sum(x) for x in zip(nodal or [0.0] * 3, line or [0.0] * 3)]
+            parts = [p for p in ("nodal %s" % num(nodal[2], 2) if nodal else "", "line %s" % num(line[2], 2) if line else "") if p]
+            r.line("  reactions sum: Rx %s Ry %s Rz %s kN%s" % (num(tot[0], 2), num(tot[1], 2), num(tot[2], 2),
+                                                                 " (Rz: %s)" % " + ".join(parts) if len(parts) > 1 else ""))
+            try:
+                if m.DomainSupports.Count:
+                    r.line("  note: %d surface support(s) (elastic foundation) are not included in this sum" % m.DomainSupports.Count)
+            except Exception:
+                pass
+            if kind != "summary" or len(rows) <= 8:
+                for sid, n, f in rows[: a.int("limit", 40)]:
+                    r.line("  ns%d n%d: R %s %s %s kN · M %s %s %s kNm" % (sid, n, *[num(x, 2) for x in f]))
     if kind in ("summary", "forces", "lines", "members"):
         try:
             res = getattr(R.Forces, "GetAllLineForcesBy" + by)(cid, 0, at)
@@ -459,9 +481,16 @@ def results_query(a, r):
             vals = res[0]
             if _code(res) > 0 and vals:
                 ok = True
-                for comp in ("Mx", "My", "Nx", "Ny", "Vxz", "Vyz"):
-                    v = max((getattr(sf.sfvCenterPoint, "sfv" + comp) for sf in vals), key=abs)
-                    r.line("  surface max |%s| = %s (element centres)" % (comp, num(v, 2)))
+                good = [sf.sfvCenterPoint for sf in vals if _sane(sf.sfvCenterPoint)]
+                bad = len(vals) - len(good)
+                if bad:
+                    r.line("  WARNING: AxisVM returned invalid surface forces for %d of %d elements (values like 1e31 or "
+                           "1e-43); they are left out. Do not use surface results from this query for design: check "
+                           "them in AxisVM (view {target:'axisvm'})" % (bad, len(vals)))
+                if len(good) > bad:
+                    for comp in ("Mx", "My", "Nx", "Ny", "Vxz", "Vyz"):
+                        v = max((getattr(c, "sfv" + comp) for c in good), key=abs)
+                        r.line("  surface max |%s| = %s (element centres)" % (comp, num(v, 2)))
         except Exception as e:
             r.line("  surface forces unavailable: %s" % conn.explain_com_error(e))
     if not ok:
@@ -470,6 +499,40 @@ def results_query(a, r):
 
 def _code(res):
     return res[-1] if isinstance(res, tuple) else res
+
+
+RESULT_KINDS = ("summary", "displacements", "disp", "reactions", "supports", "forces", "lines", "members", "surface", "domains")
+SANE = 1e9          # kN, kNm(/m): anything larger is not a structural result but an uninitialised value
+
+
+def _sane(c):
+    """Surface force record plausibility: AxisVM sometimes returns uninitialised memory (1e31, denormals 1e-43)."""
+    for f in ("Nx", "Ny", "Nxy", "Mx", "My", "Mxy", "Vxz", "Vyz"):
+        v = getattr(c, "sfv" + f)
+        if not math.isfinite(v) or abs(v) >= SANE or 0 < abs(v) < 1e-30:
+            return False
+    return True
+
+
+def _line_support_sum(F, by, cid, at):
+    """Total force [kN] of all line supports: the per-section intensities [kN/m] integrated along each section
+    (3 points per section: Simpson; otherwise trapezoid). PosX is measured within the section."""
+    res = getattr(F, "GetAllLineSupportForcesBy" + by)(cid, 0, at)
+    counts, vals, pos = res[0], res[1], res[2]
+    if _code(res) <= 0 or not counts:
+        return None
+    tot = [0.0] * 3
+    k = 0
+    for c in counts:
+        v, x = vals[k:k + c], pos[k:k + c]
+        k += c
+        for j, comp in enumerate(("Rx", "Ry", "Rz")):
+            y = [getattr(p, comp) for p in v]
+            if c == 3:
+                tot[j] += (x[2] - x[0]) * (y[0] + 4 * y[1] + y[2]) / 6
+            else:
+                tot[j] += sum((x[i + 1] - x[i]) * (y[i] + y[i + 1]) / 2 for i in range(c - 1))
+    return tot
 
 
 # ------------------------------------------------------------------ catalog

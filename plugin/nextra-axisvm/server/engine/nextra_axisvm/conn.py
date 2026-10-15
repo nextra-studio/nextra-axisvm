@@ -147,14 +147,20 @@ def _file_match(c, f):
     return os.path.basename(full) == f or f in full
 
 
+def launch_allowed():
+    """Starting a separate AxisVM is for development and tests (regress.py), not for AI clients: the tools work on the
+    AxisVM the user opened. Enable with NEXTRA_AXISVM_ALLOW_LAUNCH=1 or "allow_launch": true in config.json."""
+    from .core import cfg
+    return os.environ.get("NEXTRA_AXISVM_ALLOW_LAUNCH") == "1" or bool(cfg("allow_launch"))
+
+
 def not_found_message():
     running = win.axisvm_pids()
     if running:
-        return ("AxisVM is running (pid %s) but the NextraAxisVM add-on is not loaded in it. Run Setup.bat (installs the "
-                "add-on) and restart AxisVM once; the add-on then connects automatically. Or start a connected AxisVM: "
-                "edit {launch:true} (optionally open:'file.axs')." % ", ".join(map(str, running)))
-    return ("AxisVM is not running. Ask the user to open AxisVM (with the NextraAxisVM add-on), or start one: "
-            "edit {launch:true, open:'C:/path/model.axs'}.")
+        return ("AxisVM is running (pid %s) but the NextraAxisVM add-on is not loaded in it. Ask the user to run Setup.bat "
+                "(installs the add-on) and restart AxisVM once; the add-on then connects automatically."
+                % ", ".join(map(str, running)))
+    return "AxisVM is not running. Ask the user to open AxisVM (with the NextraAxisVM add-on) and their model."
 
 
 def get():
