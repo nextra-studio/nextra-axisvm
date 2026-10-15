@@ -17,13 +17,15 @@ SURFACES = {"plate", "slab", "shell", "wall", "membrane"}
 
 
 def run(a, r):
+    did = False
     if a.bool("launch"):
         s, note = conn.launch(a.str("open"))
         r.line(note)
         a.used.add("open")
+        undo.reset()
+        did = True
     s = conn.get()
     m = s.model
-    did = False
     if a.has("open") and not a.bool("launch"):
         conn.open_file(s, a.str("open"))
         r.line("opened %s" % a.str("open"))
