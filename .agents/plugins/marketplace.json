@@ -1,0 +1,20 @@
+{
+  "name": "nextra-axisvm",
+  "interface": {
+    "displayName": "NextraAxisVM"
+  },
+  "plugins": [
+    {
+      "name": "nextra-axisvm",
+      "source": {
+        "source": "local",
+        "path": "./plugin/nextra-axisvm"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Engineering"
+    }
+  ]
+}

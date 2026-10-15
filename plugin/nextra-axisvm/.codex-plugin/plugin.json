@@ -1,0 +1,40 @@
+{
+  "name": "nextra-axisvm",
+  "version": "0.1.0",
+  "description": "Six token-lean tools (view, query, edit, run, undo, memory) for AxisVM, on the model you have open.",
+  "author": {
+    "name": "Tatsuki",
+    "url": "https://github.com/nextra-studio/nextra-axisvm"
+  },
+  "homepage": "https://github.com/nextra-studio/nextra-axisvm",
+  "repository": "https://github.com/nextra-studio/nextra-axisvm",
+  "license": "Apache-2.0",
+  "keywords": [
+    "axisvm",
+    "structural",
+    "fem",
+    "mcp",
+    "pyaxisvm"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./codex.mcp.json",
+  "interface": {
+    "displayName": "NextraAxisVM",
+    "shortDescription": "AxisVM structural analysis tools",
+    "longDescription": "Six token-lean tools (view, query, edit, run, undo, memory) for AxisVM, on the model you have open. Works on the AxisVM model you have open (NextraAxisVM add-on, installed automatically on first use).",
+    "developerName": "Tatsuki",
+    "category": "Engineering",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/nextra-studio/nextra-axisvm",
+    "defaultPrompt": [
+      "Build a two-bay steel frame with a concrete slab in AxisVM and analyse it",
+      "Check the model I have open in AxisVM and summarise the results"
+    ],
+    "brandColor": "#1A7F37",
+    "composerIcon": "./assets/icon.svg",
+    "logo": "./assets/icon.svg"
+  }
+}

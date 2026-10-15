@@ -22,7 +22,7 @@ description: recipes for new models, checking models, Rhino/DXF import, analysis
 `edit {ops:'set l3-l8 sec=IPE 360'}` → `edit {analyze:'linear'}` → compare results. Undo with the checkpoint if the user prefers the old state.
 
 ## Rhino → AxisVM {#Rhino}
-1. In Rhino (NextraRhinoGh session, or the user runs it in Rhino's ScriptEditor):
+1. In Rhino (NextraRhinoGh session, or the user runs it in Rhino's ScriptEditor). The exporter's full path is printed by `query {scope:'docs'}`:
    `run {file:'<skill folder>/rhino/rhino_export.py', args:{selected:true, material:'S 235', section:'IPE 300', thickness:'200', surface_type:'Plate'}}`
    - Curves become lines (linear → line, arc → arc, polyline → one member), planar surfaces and polysurface faces become domains with openings.
    - AxisBridge `Ax_*` user texts are kept: `Ax_Type` (Beam/Rib/Truss/Simple…), `Ax_Section`, `Ax_Material`, `Ax_Release`, `Ax_Support` on points, `Ax_FEType`+`Ax_Thickness` on surfaces, loads `Ax_DistLoad` "LC=Dead; q=0,0,-5".

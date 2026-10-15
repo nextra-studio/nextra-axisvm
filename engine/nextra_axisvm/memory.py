@@ -246,6 +246,7 @@ def docs(topic, r):
             t = _read(f)
             head = meta(t, "description") or meta(t, "when") or next((l for l in t.splitlines() if l.startswith("# ")), "")
             r.line("- %s%s: %s" % (rel[f], " (yours)" if f in dict(user) else "", trunc(head.lstrip("# "), 100)))
+        r.line("skill folder: %s (Rhino exporter: %s)" % (sd, os.path.join(sd or "", "rhino", "rhino_export.py")))
         r.line("read: query {scope:'docs', filter:'shorthand'} · a section: 'shorthand#loads' · a keyword")
         return
     section = None

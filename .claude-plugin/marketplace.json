@@ -1,0 +1,18 @@
+{
+  "name": "nextra-axisvm",
+  "owner": {
+    "name": "Tatsuki"
+  },
+  "description": "NextraAxisVM: AxisVM tools and skill for AI agents",
+  "plugins": [
+    {
+      "name": "nextra-axisvm",
+      "displayName": "NextraAxisVM",
+      "description": "Six token-lean tools (view, query, edit, run, undo, memory) for AxisVM, on the model you have open.",
+      "version": "0.1.0",
+      "category": "engineering",
+      "source": "./plugin/nextra-axisvm",
+      "homepage": "https://github.com/nextra-studio/nextra-axisvm"
+    }
+  ]
+}

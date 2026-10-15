@@ -1,0 +1,36 @@
+{
+  "manifest_version": "0.2",
+  "name": "nextra-axisvm",
+  "display_name": "NextraAxisVM",
+  "version": "0.1.0",
+  "description": "Six token-lean tools (view, query, edit, run, undo, memory) for AxisVM, on the model you have open.",
+  "long_description": "Talks to AxisVM through PyAxisVM/COM. The NextraAxisVM add-on (installed by the setup, which runs automatically on first use) lets the tools reach an AxisVM you opened yourself. Windows only.",
+  "author": { "name": "Tatsuki" },
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"],
+      "env": { "NEXTRA_MODE": "${user_config.mode}" }
+    }
+  },
+  "user_config": {
+    "mode": {
+      "type": "string",
+      "title": "Mode",
+      "description": "full = all 6 tools, ask = read-only (view + query)",
+      "default": "full",
+      "required": false
+    }
+  },
+  "tools": [
+    { "name": "view", "description": "Tagged model image with grid, results overlay, or AxisVM window capture" },
+    { "name": "query", "description": "Model, loads, results, catalog, API reference, docs, status (dialogs)" },
+    { "name": "edit", "description": "Model shorthand, import/export, analysis, open/save" },
+    { "name": "run", "description": "Python with PyAxisVM on the open model, delta + checkpoint" },
+    { "name": "undo", "description": "Revert to a checkpoint (AxisVM undo)" },
+    { "name": "memory", "description": "Preferences, workflows, learned rules, script library" }
+  ],
+  "compatibility": { "platforms": ["win32"] }
+}

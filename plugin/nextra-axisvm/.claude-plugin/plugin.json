@@ -1,0 +1,19 @@
+{
+  "name": "nextra-axisvm",
+  "version": "0.1.0",
+  "description": "Six token-lean tools (view, query, edit, run, undo, memory) for AxisVM, on the model you have open.",
+  "author": {
+    "name": "Tatsuki",
+    "url": "https://github.com/nextra-studio/nextra-axisvm"
+  },
+  "homepage": "https://github.com/nextra-studio/nextra-axisvm",
+  "repository": "https://github.com/nextra-studio/nextra-axisvm",
+  "license": "Apache-2.0",
+  "keywords": [
+    "axisvm",
+    "structural",
+    "fem",
+    "mcp",
+    "pyaxisvm"
+  ]
+}
