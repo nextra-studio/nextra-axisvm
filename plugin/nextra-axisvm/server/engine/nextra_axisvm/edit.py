@@ -222,13 +222,14 @@ def split_existing(ctx):
     new = set(ni.created[ctx.split_mark:])
     count = 0
     for _ in range(50):                        # one split per line per pass; ids are re-read every pass
-        snap = Snapshot(m, loads=False)
+        n_lines = m.Lines.Count                # one bulk read, not a full snapshot: this runs after every line
+        data = m.Lines.BulkGetLineData(list(range(1, n_lines + 1)))[0] if n_lines else []
         done = 0
-        for lid in range(len(snap.lines) - 1, 0, -1):
-            L = snap.lines[lid]
-            if L["geom"] != 0:                 # straight lines only
+        for lid in range(n_lines, 0, -1):
+            L = data[lid - 1]
+            if L.GeomType != 0:                # straight lines only
                 continue
-            inner = [n for n in ni.on_segment(L["n1"], L["n2"]) if n in new]
+            inner = ni.on_segment(L.NodeId1, L.NodeId2, among=new)
             if inner:
                 try:
                     res = m.Lines.Item[lid].SplitByNode(inner[0])
@@ -275,6 +276,13 @@ def repeats(kv, unit):
         else:
             zs = vals
     return [(x, y, z) for z in zs for y in ys for x in xs]
+
+
+def _bulk_nodes(ctx, P, offs):
+    """All coordinate points of an op (× its @ repeats) created in one COM call before the lines are drawn."""
+    pts = [(p[0] + o[0], p[1] + o[1], p[2] + o[2]) for o in offs for p in P if isinstance(p, tuple)]
+    if len(pts) > 2:
+        ctx.ni.add_many(pts)
 
 
 def node_of(ctx, p, off=(0, 0, 0)):
@@ -369,7 +377,9 @@ def op(ctx, line, dry):
         sec = ctx.sec(kv.get("sec")) if kind else 0
         sec2 = ctx.sec(kv["sec2"]) if kind and kv.get("sec2") else None
         reused = 0
-        for off in repeats(kv, ctx.unit):
+        offs = repeats(kv, ctx.unit)
+        _bulk_nodes(ctx, P, offs)
+        for off in offs:
             ns = [node_of(ctx, p, off) for p in P]
             for a_, b_ in zip(ns, ns[1:]):
                 if a_ == b_:
@@ -400,7 +410,9 @@ def op(ctx, line, dry):
             P = pts(ctx, toks, kv)
             if len(P) < 3:
                 raise NxError("%s needs 3+ corner points (or contour line handles)" % word)
-            for off in repeats(kv, ctx.unit):
+            offs = repeats(kv, ctx.unit)
+            _bulk_nodes(ctx, P, offs)
+            for off in offs:
                 ns = [node_of(ctx, p, off) for p in P]
                 edge = [lid for i in range(len(ns)) for lid, _ in k.chain(m, ctx.ni, ns[i], ns[(i + 1) % len(ns)])]
                 made.append(k.domain(m, edge, word, thick, mat))
@@ -719,7 +731,9 @@ def export(s, path, r):
 
 
 def mesh(s, spec, r, size=None):
-    """Mesh domains: spec 'all' | 'd1 d2' | number (size for all). Returns meshed ids."""
+    """Mesh domains in ONE AxisVM call (GenerateMeshOnSelectedDomains), so neighbouring domains are meshed together
+    and share the nodes on their common edges. spec 'all' | 'd1 d2' | number (size for all). One size for the call:
+    the given one, else the finest default of the domains. Returns meshed ids."""
     a = conn.ax()
     m = s.model
     if isinstance(spec, (int, float)):
@@ -729,23 +743,68 @@ def mesh(s, spec, r, size=None):
     if mm:
         size = float(mm.group(1))
     ids = handles([t for t in spec.split() if t.startswith("d")], "d") or list(range(1, m.Domains.Count + 1))
-    done = []
-    for did in ids:
-        p = a.RDomainMeshParameters()
-        p.MeshSize = float(size or default_mesh_size(s, did))
-        p.MeshType = a.mtAdaptive
-        p.MeshGeometryType = a.mgtMixedQuadTriangle
-        p.QuadMeshQuality = 5
-        res = m.Domains.Item[did].GenerateMesh(p)
-        if k.code(res) is not None and k.code(res) > 0:
-            done.append(did)
-        else:
-            bad = list(res[3]) if isinstance(res, tuple) and len(res) > 3 else []
-            r.line("mesh d%d failed%s" % (did, ": check lines " + " ".join("l%d" % x for x in bad) +
+    if not ids:
+        return []
+    check_ids(m, "d", ids)
+    size = float(size) if size else min(default_mesh_size(s, d) for d in ids)
+    p = a.RDomainMeshParameters()
+    p.MeshSize = size
+    p.MeshType = a.mtAdaptive
+    p.MeshGeometryType = a.mgtMixedQuadTriangle
+    p.QuadMeshQuality = 5
+    keep = _save_selection(m)                  # AxisVM clears the selection when it meshes; give the user's back
+    try:
+        m.SelectAll(a.lbFalse)
+        for did in ids:
+            m.Domains.Selected[did] = a.lbTrue
+        res = m.Domains.GenerateMeshOnSelectedDomains(p)
+    finally:
+        _restore_selection(m, keep)
+    done = [d for d in ids if m.Domains.Item[d].MeshExists]
+    failed = [d for d in ids if d not in done]
+    if failed:
+        bad = [x for x in (res[-2] if isinstance(res, tuple) and len(res) > 1 and isinstance(res[-2], (list, tuple)) else ()) if x]
+        r.line("mesh failed for %s%s" % (ranges(failed, "d"), ": check lines " + " ".join("l%d" % x for x in bad) +
                                          " (overlapping or unconnected; try ops 'intersect')" if bad else " (%s)" % (res,)))
     if done:
-        r.line("meshed %s (size %s m)" % (ranges(done, "d"), num(size) if size else "auto"))
+        r.line("meshed %s%s (size %s m)" % (ranges(done, "d"), " together" if len(done) > 1 else "", num(size)))
     return done
+
+
+def _ids(got):
+    return list(got[0] or ()) if isinstance(got, tuple) else list(got or ())
+
+
+def _save_selection(m):
+    """Selected domains and nodes by id, lines by their end nodes (meshing renumbers lines)."""
+    sel = {"d": [], "n": [], "l": set()}
+    try:
+        sel["d"] = _ids(m.Domains.GetSelectedItemIds())
+        sel["n"] = _ids(m.Nodes.GetSelectedNodes())
+        lids = _ids(m.Lines.GetSelectedItemIds())
+        if lids:
+            sel["l"] = {frozenset((d.NodeId1, d.NodeId2)) for d in m.Lines.BulkGetLineData(lids)[0]}
+    except Exception:
+        pass
+    return sel
+
+
+def _restore_selection(m, sel):
+    a = conn.ax()
+    try:
+        m.SelectAll(a.lbFalse)
+        for did in sel["d"]:
+            m.Domains.Selected[did] = a.lbTrue
+        if sel["n"]:
+            m.Nodes.BulkSelect(sel["n"], a.lbTrue)
+        if sel["l"]:
+            n = m.Lines.Count
+            for lid, d in enumerate(m.Lines.BulkGetLineData(list(range(1, n + 1)))[0], 1):
+                if frozenset((d.NodeId1, d.NodeId2)) in sel["l"]:
+                    m.Lines.Selected[lid] = a.lbTrue
+        m.Refresh()
+    except Exception:
+        pass
 
 
 def default_mesh_size(s, did):

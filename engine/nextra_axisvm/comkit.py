@@ -50,8 +50,9 @@ class NodeIndex:
         self.grid.setdefault(self._key(p), []).append((i, p))
         self.coord[i] = p
 
-    def on_segment(self, a, b):
-        """Existing nodes strictly between nodes a and b on the straight segment, ordered from a to b."""
+    def on_segment(self, a, b, among=None):
+        """Existing nodes (or only those in `among`) strictly between nodes a and b on the straight segment,
+        ordered from a to b."""
         p, q = self.coord.get(a), self.coord.get(b)
         if p is None or q is None:
             return []
@@ -60,7 +61,8 @@ class NodeIndex:
         if L2 <= 0:
             return []
         out = []
-        for i, r in self.coord.items():
+        cand = self.coord.items() if among is None else ((i, self.coord[i]) for i in among if i in self.coord)
+        for i, r in cand:
             if i in (a, b):
                 continue
             t = sum((r[k] - p[k]) * d[k] for k in range(3)) / L2
@@ -89,6 +91,29 @@ class NodeIndex:
         self._put(i, p)
         self.created.append(i)
         return i
+
+    def add_many(self, points):
+        """Create every missing point with ONE Nodes.BulkAdd (instead of one COM call per node)."""
+        new = []
+        seen = NodeIndex.__new__(NodeIndex)
+        seen.tol, seen.grid, seen.coord = self.tol, {}, {}
+        for p in points:
+            p = tuple(float(c) for c in p)
+            if not self.find(p) and not seen.find(p):
+                seen._put(len(new) + 1, p)
+                new.append(p)
+        if not new:
+            return
+        res = self.model.Nodes.BulkAdd([rec("RPoint3d", x=p[0], y=p[1], z=p[2]) for p in new])
+        ids = list(res[0]) if isinstance(res, tuple) else []
+        if code(res) is None or code(res) <= 0 or len(ids) != len(new) or any(i <= 0 for i in ids):
+            for p in new:                      # bulk refused: one by one, with per-node errors
+                if not self.find(p):
+                    self.get(p)
+            return
+        for i, p in zip(ids, new):
+            self._put(i, p)
+            self.created.append(i)
 
 
 def chain(model, ni, n1, n2, split=True):
@@ -345,12 +370,13 @@ def self_weight(model, case, lines=None, domains=None):
     """Self-weight of the given (default: all) beams/ribs/trusses and domains."""
     a = ax()
     n = 0
-    lines = range(1, model.Lines.Count + 1) if lines is None else lines
+    lines = list(range(1, model.Lines.Count + 1) if lines is None else lines)
     domains = range(1, model.Domains.Count + 1) if domains is None else domains
-    for lid in lines:
-        t = model.Lines.Item[lid].LineType
-        fn = {a.ltBeam: model.Loads.AddBeamSelfWeight, a.ltRib: model.Loads.AddRibSelfWeight,
-              a.ltTruss: model.Loads.AddTrussSelfWeight}.get(t)
+    types = [t.LineType for t in model.Lines.BulkGetAttr_V161(lines)[0]] if lines else []   # one read, not one per line
+    adders = {a.ltBeam: model.Loads.AddBeamSelfWeight, a.ltRib: model.Loads.AddRibSelfWeight,
+              a.ltTruss: model.Loads.AddTrussSelfWeight}
+    for lid, t in zip(lines, types):
+        fn = adders.get(t)
         if fn and code(fn(lid, case)) > 0:
             n += 1
     for did in domains:
