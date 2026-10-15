@@ -19,6 +19,9 @@ SURFACES = {"plate", "slab", "shell", "wall", "membrane"}
 def run(a, r):
     did = False
     if a.bool("launch"):
+        if not conn.launch_allowed():
+            raise NxError("starting a new AxisVM is disabled: the tools work on the AxisVM the user opened",
+                          "ask the user to open AxisVM (with the NextraAxisVM add-on) and their model, then query {scope:'instances'}")
         s, note = conn.launch(a.str("open"))
         r.line(note)
         a.used.add("open")
@@ -33,6 +36,10 @@ def run(a, r):
         did = True
     if a.bool("new"):
         rc = s.app.Models.New()
+        c = k.code(rc)
+        if not isinstance(c, int) or c <= 0:
+            raise NxError("AxisVM could not create a new model (%s); the current model is still open and unchanged"
+                          % (conn.error_name(c) if isinstance(c, int) else c), "query {scope:'status'} (a dialog may be open)")
         r.line("new model (%s)" % rc)
         undo.reset()
         did = True
@@ -53,14 +60,18 @@ def run(a, r):
         did = True
     if a.has("save"):
         p = os.path.abspath(a.str("save"))
+        old = os.path.getmtime(p) if os.path.isfile(p) else None
         rc = m.SaveToFile(p, conn.ax().lbTrue if a.bool("save_results", True) else conn.ax().lbFalse)
         if k.code(rc) in (0, None) or (isinstance(k.code(rc), int) and k.code(rc) < 0):
             raise NxError("AxisVM could not save %s (%s)" % (p, rc))
+        if not os.path.isfile(p) or os.path.getsize(p) == 0 or os.path.getmtime(p) == old:
+            raise NxError("AxisVM reported success but %s is missing, empty or not rewritten" % p,
+                          "query {scope:'status'} (File save error dialog?); save to another writable folder")
         s.file = p
         r.line("saved %s" % p)
         did = True
     if not did:
-        raise NxError("nothing to do", "edit {ops:'…'} | {analyze:'linear'} | {open|save|import|export:'path'} | {new:true} | {launch:true}")
+        raise NxError("nothing to do", "edit {ops:'…'} | {analyze:'linear'} | {open|save|import|export:'path'} | {new:true}")
 
 
 # ------------------------------------------------------------------ shorthand
@@ -73,6 +84,12 @@ class Ctx:
         self.default = {}
         self.nodes = None
         self.created = {"l": [], "d": [], "n": []}
+        self.split_mark = 0
+
+    def reset_nodes(self):
+        """Node numbers changed behind the index (intersect/delete/tol): rebuild it on next use. New nodes are
+        counted from zero again, so a later point still splits the line it lands on."""
+        self.nodes = None
         self.split_mark = 0
 
     @property
@@ -112,19 +129,41 @@ def parse_list(v):
     v = v.strip()
     if ":" in v:
         a, st, b = [float(x) for x in v.split(":")]
-        n = int(round((b - a) / st)) if st else 0
+        n = int(round((b - a) / st)) if st else -1
+        if n < 0:
+            raise NxError("range '%s': the step must be non-zero and go from start towards end" % v, "x=0:6:24 · x=24:-6:0 · x=0,6,12")
         return [a + i * st for i in range(n + 1)]
     return [float(x) for x in re.split(r"[,\s]+", v) if x]
 
 
+COUNTED = (("Nodes", "node"), ("Lines", "line"), ("Domains", "domain"), ("NodalSupports", "nodal support"),
+           ("LineSupports", "line support"), ("Loads", "load"))
+
+
+def _counts(m):
+    try:
+        return [getattr(m, c).Count for c, _ in COUNTED]
+    except Exception:
+        return None
+
+
+def _left_over(m, before):
+    """What a failed line still created before its error ('+1 line, +2 node'), or ''."""
+    after = _counts(m) if before else None
+    if not after:
+        return ""
+    return ", ".join("%+d %s" % (y - x, name) for (_, name), x, y in zip(COUNTED, before, after) if y != x)
+
+
 def apply_ops(s, text, r, atomic=False, dry=False):
     ctx = Ctx(s, r)
-    lines = [l for l in text.replace("\r", "").split("\n")]
-    ok = fail = 0
+    lines = [l for l in text.replace("\r", "").replace("−", "-").split("\n")]
+    ok = fail = residue = 0
     for no, raw in enumerate(lines, 1):
         line = raw.split("#", 1)[0].strip()
         if not line:
             continue
+        before = None if dry or atomic else _counts(ctx.m)
         try:
             res = op(ctx, line, dry)
             ok += 1
@@ -135,20 +174,46 @@ def apply_ops(s, text, r, atomic=False, dry=False):
                     res = (res + "; " if res else "") + "split %d existing line(s) at new node(s)" % n
             if res:
                 r.line("L%d: %s" % (no, res))
-        except NxError as e:
-            fail += 1
-            r.line("L%d `%s`: %s%s" % (no, trunc(line, 80), e, (" — " + e.hint) if e.hint else ""))
-            if atomic:
-                raise NxError("atomic: stopped at L%d; whole edit reverted" % no)
         except Exception as e:
             fail += 1
-            r.line("L%d `%s`: %s" % (no, trunc(line, 80), conn.explain_com_error(e)))
             if atomic:
-                raise NxError("atomic: stopped at L%d; whole edit reverted" % no)
+                r.line("L%d `%s`: %s" % (no, trunc(line, 80), _err_text(e)))
+                raise NxError("atomic: stopped at L%d; whole edit reverted (0/%d lines applied)" % (no, ok + fail))
+            left = _left_over(ctx.m, before)
+            if left:
+                residue += 1
+            r.line("L%d `%s`: %s%s" % (no, trunc(line, 80), _err_text(e),
+                                       " [NOT clean: %s were created before the error]" % left if left else ""))
     r.ok = fail == 0 or ok > 0
-    r.lines.insert(0, "%s: %d/%d lines applied" % ("ok" if fail == 0 else "partial" if ok else "FAILED", ok, ok + fail))
-    if fail and ok:
+    r.lines.insert(0, "%s: %d/%d lines applied%s" % ("ok" if fail == 0 else "partial" if ok else "FAILED", ok, ok + fail,
+                                                    "; %d failed line(s) left objects in the model" % residue if residue else ""))
+    if residue:
+        r.line("failed lines marked NOT clean left objects behind: undo {steps:1} and resend the corrected batch "
+               "(resending only the failed line would duplicate them)")
+    elif fail and ok:
         r.line("fix only the failed lines (the others are applied)")
+
+
+def _err_text(e):
+    if isinstance(e, NxError):
+        return "%s%s" % (e, (" — " + e.hint) if e.hint else "")
+    return conn.explain_com_error(e)
+
+
+def _only(kv, word, allowed):
+    """Reject keys this action does not use, instead of silently ignoring them."""
+    bad = [x for x in kv if x not in allowed]
+    if bad:
+        raise NxError("%s: unknown %s" % (word, " ".join("@ repeat" if x == "@" else x + "=" for x in bad)),
+                      "%s takes %s. Other properties (beta angle, eccentricity, partial/trapezoidal loads, spring releases, "
+                      "local supports): run" % (word, " ".join(x + "=" for x in allowed if x != "@") or "no key=value"))
+
+
+HANDLE = r"%s\d+(-%s?\d+)?"
+
+
+def _is(t, prefix):
+    return re.fullmatch(HANDLE % (prefix, prefix), t) is not None
 
 
 def split_existing(ctx):
@@ -262,9 +327,10 @@ def op(ctx, line, dry):
         return None
     if word == "tol":
         ctx.tol = float(toks[0]) * ctx.unit
-        ctx.nodes = None
+        ctx.reset_nodes()
         return None
     if word == "use":
+        _only(kv, word, ("mat", "sec", "t"))
         ctx.default.update(kv)
         return None
     if word in ("mat", "sec"):
@@ -280,6 +346,10 @@ def op(ctx, line, dry):
 
     if word in ELEMENTS:
         kind = ELEMENTS[word]
+        _only(kv, word, ("mat", "sec", "sec2", "split", "release", "start", "end", "@"))
+        for key in ("release", "start", "end"):
+            if kv.get(key):
+                k.release_dofs(kv[key])              # validate before anything is created
         lids = handles(toks, "l")
         made = []
         if lids:                                        # define existing lines
@@ -292,6 +362,9 @@ def op(ctx, line, dry):
         P = pts(ctx, toks, kv)
         if len(P) < 2:
             raise NxError("%s needs two or more points (x,y,z or nN) or line handles" % word)
+        for p, q in zip(P, P[1:]):
+            if p == q or (isinstance(p, tuple) and isinstance(q, tuple) and max(abs(x - y) for x, y in zip(p, q)) <= ctx.tol):
+                raise NxError("zero-length segment (the same point twice); nothing was created")
         mat = ctx.mat(kv.get("mat")) if kind else 0
         sec = ctx.sec(kv.get("sec")) if kind else 0
         sec2 = ctx.sec(kv["sec2"]) if kind and kv.get("sec2") else None
@@ -313,6 +386,7 @@ def op(ctx, line, dry):
         return "%s %s%s" % (word, ranges(made, "l"), " (%d existing line(s) reused)" % reused if reused else "")
 
     if word in SURFACES:
+        _only(kv, word, ("t", "mat", "@"))
         t = kv.get("t") or ctx.default.get("t")
         if not t:
             raise NxError("%s needs t=<thickness>" % word, "t in the current units (default m): t=0.2")
@@ -334,6 +408,7 @@ def op(ctx, line, dry):
         return "%s %s" % (word, ranges(made, "d"))
 
     if word == "hole":
+        _only(kv, word, ())
         did = handles(toks[:1], "d")
         if not did:
             raise NxError("hole d<N> P P P …")
@@ -353,12 +428,14 @@ def op(ctx, line, dry):
         if not spec and toks and re.fullmatch(r"[a-z][a-z\-]*", toks[-1].lower()) and not re.fullmatch(r"[nl]\d+(-[nl]?\d+)?", toks[-1]):
             spec = toks.pop()
         spec = spec or "fixed"
+        _only(kv, word, ("k", "x", "y", "z"))
+        k.stiffness(spec)                                   # validate before anything is created
         targets = toks
         out = []
-        nodes = _select_nodes(ctx, targets, kv)
+        lsup = check_ids(m, "l", handles([t for t in targets if _is(t, "l")], "l") or [])
+        nodes = _select_nodes(ctx, [t for t in targets if not _is(t, "l")], kv)
         for n in nodes:
             out.append("ns%d" % k.nodal_support(m, n, spec))
-        lsup = check_ids(m, "l", handles([t for t in targets if t.startswith("l")], "l") or [])
         if lsup:
             snap = Snapshot(m, loads=False)
             for lid in lsup:
@@ -373,7 +450,13 @@ def op(ctx, line, dry):
         if not lids:
             raise NxError("release l3 l4 start=hinge end=hinge (or both=hinge)")
         check_ids(m, "l", lids)
+        _only(kv, word, ("start", "end", "both"))
         b = kv.get("both")
+        if not (kv.get("start") or kv.get("end") or b):
+            raise NxError("release: give start=, end= or both=", "release l3 both=hinge · start=free:yy,zz · end=rigid")
+        for spec in (kv.get("start", b), kv.get("end", b)):
+            if spec:
+                k.release_dofs(spec)
         for lid in lids:
             k.releases(m, lid, start=kv.get("start", b), end=kv.get("end", b))
         return "released %s" % ranges(lids, "l")
@@ -390,26 +473,46 @@ def op(ctx, line, dry):
     if word == "load":
         if len(toks) < 2:
             raise NxError("load <case> <targets> fz=… | qz=… | pz=… | self")
+        FORCE, LINE, AREA = ("fx", "fy", "fz", "mx", "my", "mz"), ("qx", "qy", "qz"), ("px", "py", "pz")
+        _only(kv, word, FORCE + LINE + AREA + ("sys",))
+        flags, targets = set(), []
+        for key, val in list(kv.items()):                 # 'qz=-2 local': a flag after the last value
+            parts = val.split()
+            if len(parts) > 1:
+                extra = [x.lower() for x in parts[1:]]
+                if any(x not in LOAD_FLAGS for x in extra):
+                    raise NxError("load: '%s' after %s= not understood" % (" ".join(parts[1:]), key),
+                                  "flags: %s · load Q l1 local qz=-2" % " ".join(LOAD_FLAGS))
+                flags.update(extra)
+                kv[key] = parts[0]
+        for t in toks[1:]:
+            (flags.add(t.lower()) if t.lower() in LOAD_FLAGS else targets.append(t))
         cid, _ = k.load_case(m, toks[0])
-        targets = toks[1:]
         if targets == ["self"]:
             return "self-weight on %d element(s)" % k.self_weight(m, cid)
         v = lambda key: float(kv.get(key, 0) or 0)
-        local = "local" in targets or kv.get("sys", "").startswith("l")
-        targets = [t for t in targets if t not in ("local", "global")]
-        n_l = check_ids(m, "l", handles([t for t in targets if t.startswith("l")], "l") or [])
-        n_d = check_ids(m, "d", handles([t for t in targets if t.startswith("d")], "d") or [])
-        n_n = _select_nodes(ctx, [t for t in targets if not t.startswith(("l", "d"))], {})
+        local = "local" in flags or kv.get("sys", "").lower().startswith("l")
+        projected = "projected" in flags
+        n_l = check_ids(m, "l", handles([t for t in targets if _is(t, "l")], "l") or [])
+        n_d = check_ids(m, "d", handles([t for t in targets if _is(t, "d")], "d") or [])
+        n_n = _select_nodes(ctx, [t for t in targets if not _is(t, "l") and not _is(t, "d")], {})
+        for got, keys, what in ((n_n, FORCE, "nodal loads take fx fy fz mx my mz [kN, kNm]"),
+                                (n_l, LINE, "line loads on lN take qx qy qz [kN/m]"),
+                                (n_d, LINE + AREA, "area loads on dN take px py pz [kN/m2]")):
+            if got and not any(x in kv for x in keys):
+                raise NxError("load: no value for these targets: " + what)
+        if n_n and projected:
+            raise NxError("load: 'projected' applies to line and area loads, not nodal loads")
         cnt = 0
         for n in n_n:
             k.nodal_force(m, cid, n, (v("fx"), v("fy"), v("fz"), v("mx"), v("my"), v("mz")))
             cnt += 1
         for lid in n_l:
-            k.beam_load(m, cid, lid, (v("qx"), v("qy"), v("qz")), local)
+            k.beam_load(m, cid, lid, (v("qx"), v("qy"), v("qz")), local, projected)
             cnt += 1
         for did in n_d:
             q = (v("px") or v("qx"), v("py") or v("qy"), v("pz") or v("qz"))
-            k.area_load(m, cid, did, q, local, projected="projected" in toks)
+            k.area_load(m, cid, did, q, local, projected)
             cnt += 1
         if not cnt:
             raise NxError("load: no target", "nodes nN / x,y,z · lines lN (qz=kN/m) · domains dN (pz=kN/m2)")
@@ -431,23 +534,30 @@ def op(ctx, line, dry):
         return "combo %s #%d (%s)" % (name, i, kind)
 
     if word == "delete":
-        ls_ = handles([t for t in toks if t.startswith("l")], "l") or []
-        ds = handles([t for t in toks if t.startswith("d")], "d") or []
-        ns = handles([t for t in toks if t.startswith("n")], "n") or []
+        _handles_only(toks, word)
+        ls_ = check_ids(m, "l", handles([t for t in toks if t.startswith("l")], "l") or [])
+        ds = check_ids(m, "d", handles([t for t in toks if t.startswith("d")], "d") or [])
+        ns = check_ids(m, "n", handles([t for t in toks if t.startswith("n")], "n") or [])
         for did in sorted(ds, reverse=True):
             k.check(m.Domains.Delete(did), "delete d%d" % did)
         for lid in sorted(ls_, reverse=True):
             k.check(m.Lines.Delete(lid), "delete l%d" % lid)
         for n in sorted(ns, reverse=True):
             k.check(m.Nodes.Delete(n), "delete n%d" % n)
-        ctx.nodes = None
+        ctx.reset_nodes()
         return "deleted %d item(s); AxisVM renumbered the rest" % (len(ls_) + len(ds) + len(ns))
 
     if word == "set":
         lids = handles([t for t in toks if t.startswith("l")], "l") or []
         if not lids:
             raise NxError("set l3 l4 sec=IPE 330 [mat=…] [type=beam|rib|truss]")
+        _handles_only(toks, word)
         check_ids(m, "l", lids)
+        _only(kv, word, ("sec", "mat", "type"))
+        if not kv:
+            raise NxError("set: nothing to change", "set l3 sec=IPE 330 · mat=S 355 · type=beam|rib|truss")
+        if kv.get("type") and kv["type"] not in ("beam", "rib", "truss"):
+            raise NxError("set: type=%s unknown" % kv["type"], "type=beam|rib|truss")
         snap = Snapshot(m, loads=False)
         for lid in lids:
             L = snap.lines[lid]
@@ -458,6 +568,7 @@ def op(ctx, line, dry):
         return "set %s" % ranges(lids, "l")
 
     if word == "select":
+        _handles_only(toks, word)
         a = conn.ax()
         m.SelectAll(a.lbFalse)
         for pre, coll in (("l", m.Lines), ("d", m.Domains), ("n", m.Nodes)):
@@ -467,9 +578,11 @@ def op(ctx, line, dry):
         return "selected in AxisVM"
 
     if word == "intersect":
-        lids = handles(toks, "l") or list(range(1, m.Lines.Count + 1))
+        if toks and not all(_is(t, "l") for t in toks):
+            raise NxError("intersect takes line handles only", "intersect · intersect l1 l2 l5")
+        lids = check_ids(m, "l", handles(toks, "l")) if toks else list(range(1, m.Lines.Count + 1))
         k.check(m.Lines.CrossLines(lids), "intersect lines")
-        ctx.nodes = None
+        ctx.reset_nodes()
         return "intersected %d line(s)" % len(lids)
 
     raise NxError("unknown action '%s'" % word,
@@ -482,12 +595,24 @@ def _post_line_opts(ctx, lids, kv):
             k.releases(ctx.m, lid, start=kv.get("start"), end=kv.get("end"))
 
 
+def _handles_only(toks, word):
+    bad = [t for t in toks if not (_is(t, "l") or _is(t, "d") or _is(t, "n"))]
+    if bad:
+        raise NxError("%s: '%s' is not a handle" % (word, " ".join(bad)), "handles: l3 d1 n5 l4-l9")
+
+
+LOAD_FLAGS = ("local", "global", "projected")
+
+
 def _select_nodes(ctx, toks, kv):
-    """Node targets: nN handles, x,y,z points (existing or new node), 'z=0' / 'x=…' plane selectors, 'all'."""
+    """Node targets: nN handles, x,y,z points (existing or new node), 'z=0' / 'x=…' plane selectors."""
     out = []
     for t in toks:
-        if re.fullmatch(r"n\d+(-n?\d+)?", t):
-            out += handles([t], "n")
+        if not (_is(t, "n") or re.fullmatch(r"[xyz]=[-\d.]+", t) or "," in t):
+            raise NxError("'%s' is not a target here" % t, "nodes n5 n1-n4 · points x,y,z · planes z=0 · lines l3 · domains d1")
+    for t in toks:
+        if _is(t, "n"):
+            out += check_ids(ctx.m, "n", handles([t], "n"))
         elif re.fullmatch(r"[xyz]=[-\d.]+", t):
             ax_, v = t.split("=")
             v = float(v) * ctx.unit
@@ -633,6 +758,25 @@ def default_mesh_size(s, did):
     return max(0.25, min(1.0, (area ** 0.5) / 8 if area else 0.5))
 
 
+def _check_writable(path):
+    """AxisVM writes the model and result files next to the model during analysis. An unwritable folder stops it at a
+    modal 'File save error' dialog and the analysis returns only 'failed (0)', so check first."""
+    if not path:
+        return
+    folder = os.path.dirname(path)
+    probe = os.path.join(folder or ".", "~nextra_write_test.tmp")
+    try:
+        with open(probe, "w") as f:
+            f.write("x")
+        os.remove(probe)
+        if os.path.exists(path) and not os.access(path, os.W_OK):
+            raise PermissionError(13, "the file is read-only")
+    except OSError as e:
+        raise NxError("AxisVM cannot write next to the model file %s (%s); the analysis would stop at a "
+                      "'File save error' dialog" % (path, e.strerror or e),
+                      "ask the user where to save, then edit {save:'C:/…/model.axs'} and analyze again")
+
+
 def analyze(s, kind, mesh_size, r):
     a = conn.ax()
     m = s.model
@@ -645,6 +789,8 @@ def analyze(s, kind, mesh_size, r):
     calc = m.Calculation
     ui = a.cuiNoUserInteractionWithAutoCorrectNoShow
     if kind.startswith("lin"):
+        _check_writable(m.FileName)
+        undo.analysed()
         rc = calc.LinearAnalysis(ui)
     elif kind.startswith("non"):
         raise NxError("nonlinear analysis needs parameters", "use run with model.Calculation.NonLinearAnalysis(params, %d); see query {scope:'api', filter:'RNonLinearAnalysis'}" % ui)

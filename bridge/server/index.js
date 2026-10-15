@@ -49,12 +49,12 @@ const TOOLS = [
   },
   {
     name: "edit",
-    description: "Change the model with NextraAxisVM shorthand (one action per line, applied independently, per-line errors; grammar: query {scope:'docs', filter:'shorthand'}), e.g. 'column 0,0,0 0,0,3.5 sec=HEB 200 mat=S 235 @ x=0:6:12'. One AxisVM undo step + checkpoint; replies with the model delta. Also analyze:'linear' (meshes unmeshed domains), import (.dxf .ifc .axs .pdf, Rhino AxisBridge .json), export (.dxf .ifc), open/save/new, launch (start AxisVM).",
+    description: "Change the model with NextraAxisVM shorthand (one action per line, applied independently, per-line errors; grammar: query {scope:'docs', filter:'shorthand'}), e.g. 'column 0,0,0 0,0,3.5 sec=HEB 200 mat=S 235 @ x=0:6:12'. One AxisVM undo step + checkpoint; replies with the model delta. Also analyze:'linear' (meshes unmeshed domains), import (.dxf .ifc .axs .pdf, Rhino AxisBridge .json), export (.dxf .ifc), open/save/new. Works only in the AxisVM the user opened.",
     inputSchema: { type: "object", properties: {
       ops: { type: "string" }, atomic: { type: "boolean" }, dry_run: { type: "boolean" }, label: { type: "string" },
       analyze: { type: "string", enum: ["linear"] }, mesh: { type: "string", description: "'all' | 'd1 d2' | 'all size=0.5'" }, mesh_size: { type: "number" },
       import: { type: "string" }, import_options: { type: "object" }, export: { type: "string" },
-      open: { type: "string" }, save: { type: "string" }, new: { type: "boolean" }, launch: { type: "boolean" },
+      open: { type: "string" }, save: { type: "string" }, new: { type: "boolean" },
     } },
   },
   {

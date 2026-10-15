@@ -20,6 +20,12 @@ def reset():
     STATE["checkpoints"] = []
 
 
+def analysed():
+    """An analysis ran: mark existing checkpoints (AxisVM's undo across an analysis is not reliable)."""
+    for c in _cps():
+        c["analysed"] = True
+
+
 @contextlib.contextmanager
 def step(s, label, r, quiet=False, report=True):
     m = s.model
@@ -56,7 +62,7 @@ def step(s, label, r, quiet=False, report=True):
         # nothing changed: drop the undo point by not recording a checkpoint (AxisVM keeps an empty undo entry)
         _cps().append({"id": cid, "label": label, "before": before.signature(), "after": after.signature(), "empty": True})
         if report and not quiet:
-            r.line("no model change")
+            r.line("no change in geometry, elements, supports or loads (releases, stiffness, beta and links are not tracked)")
         return
     _cps().append({"id": cid, "label": label, "before": before.signature(), "after": after.signature()})
     STATE["snap"] = after
@@ -87,7 +93,12 @@ def run(a, r):
             raise NxError("checkpoint %s not found" % cid, "undo {list:true}")
         todo = cps[idx:]
     else:
-        todo = cps[-a.int("steps", 1):]
+        n = a.int("steps", 1)
+        if n < 1:
+            raise NxError("steps must be ≥ 1", "undo {steps:1} · undo {checkpoint:'c3'} · undo {list:true}")
+        todo = cps[-n:]
+    if not todo:
+        raise NxError("no checkpoints to undo in this session", "undo {list:true}")
     cur = Snapshot(m, loads=False).signature()
     if cur != todo[-1]["after"] and not a.bool("force"):
         raise NxError("the model changed after checkpoint %s (edited in AxisVM?)" % todo[-1]["id"],
@@ -98,6 +109,10 @@ def run(a, r):
         ok = now == c["before"]
         r.line("%s: %s %s" % (c["id"], "reverted" if ok else "undo applied, but the model differs from the snapshot", c["label"]))
         cps.remove(c)
+    if any(c.get("empty") or c.get("analysed") for c in todo):
+        r.line("note: only geometry, elements, supports, loads, cases and catalog entries are compared. Changes the "
+               "snapshot cannot see (releases, stiffness, beta, links) or made before an analysis may not be undone: "
+               "check them (query level:'detail') before relying on this undo")
     try:
         m.Refresh()
     except Exception:

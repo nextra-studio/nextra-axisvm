@@ -54,7 +54,8 @@ release l9 l10 both=hinge      # or start=hinge / end=hinge / start=free:yy,zz /
 case G self                    # create case G and add self-weight of all members and domains
 case Q
 load Q d1 d2 pz=-3             # area load on domains [kN/m²] (global; 'local', 'projected' allowed)
-load G l7 l8 qz=-2             # uniform line load on beams/ribs [kN/m] (qx qy qz; 'local')
+load G l7 l8 qz=-2             # uniform line load on the full length of beams/ribs [kN/m] (qx qy qz)
+load S l7 projected qz=-1.5    # per m of plan length (snow on a rafter); 'local' = member axes
 load Q n5 fz=-10 mx=2          # nodal force/moment [kN, kNm]: fx fy fz mx my mz
 load Q 6,0,3.5 fz=-10          # at a point
 load G self                    # self-weight into an existing case
@@ -88,4 +89,8 @@ combo ULS = 1.35 G + 1.5 Q
 Then `edit {analyze:'linear'}` and `query {scope:'results', combo:'ULS'}`.
 
 ## Other edit fields
-`analyze:'linear'` · `mesh:'all size=0.5'` · `import:'path'` (+`import_options`) · `export:'x.dxf'|'x.ifc'` · `open` · `save:'path.axs'` · `new:true` (empty model) · `launch:true` (start AxisVM) · `dry_run:true` (parse only).
+`analyze:'linear'` · `mesh:'all size=0.5'` · `import:'path'` (+`import_options`) · `export:'x.dxf'|'x.ifc'` · `open` · `save:'path.axs'` · `new:true` (empty model) · `dry_run:true` (parse only).
+
+## Errors and what is not in the shorthand
+A failed line normally changes nothing. If it is marked **NOT clean**, it created objects before the error: `undo {steps:1}` and resend the corrected batch instead of resending only that line. Unknown keys (`beta=`, `from=`, `ey=` …) and unknown words are rejected, never ignored.
+Not in the shorthand, use `run`: beta angle, eccentricity, partial or trapezoidal beam loads, temperature, support settlement, semi-rigid (spring) releases, local/beam-relative supports, rigid bodies, links, spring and gap elements, edge hinges, elastic foundations, arcs, load groups, envelopes, nonlinear/vibration/buckling/design.

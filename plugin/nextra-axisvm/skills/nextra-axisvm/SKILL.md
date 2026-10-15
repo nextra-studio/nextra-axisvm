@@ -14,7 +14,7 @@ The tools (`view`, `query`, `edit`, `run`, `undo`, `memory`) run on the user's c
 3. **First call:** `memory {action:'list'}`.
 4. Still no tools? Repeat 1–3 once. Then tell the user in one message that the AxisVM tools did not attach, and ask them to keep the Claude desktop app running and reply "retry".
 - "installing its Python environment": first use. Setup runs in the background for 1–4 minutes. Tell the user and retry later. AxisVM needs one restart afterwards.
-- "AxisVM is running but the add-on is not loaded": ask the user to run **Setup.bat** and restart AxisVM. "not running": ask them to open AxisVM, or start one with `edit {launch:true, open:'C:/…/model.axs'}`.
+- "AxisVM is running but the add-on is not loaded": ask the user to run **Setup.bat** and restart AxisVM. "not running": ask them to open AxisVM and their model. Work only in the AxisVM the user opened; never start another one.
 
 ## Several AxisVM windows
 The session binds to one AxisVM. With several open, call `query {scope:'instances'}`, then `query {instance:'house.axs'}` (file name or pid; sticky). It never switches on its own.

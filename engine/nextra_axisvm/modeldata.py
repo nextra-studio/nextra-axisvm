@@ -29,8 +29,11 @@ class Snapshot:
             except Exception:
                 members = [0] * nl
             for i, (d, t) in enumerate(zip(data, attrs)):
-                self.lines.append({"n1": d.NodeId1, "n2": d.NodeId2, "geom": d.GeomType, "type": LINE_TYPES.get(t.LineType, str(t.LineType)),
-                                   "mat": t.MaterialIndex, "sec": t.StartCrossSectionIndex, "sec2": t.EndCrossSectionIndex,
+                typ = LINE_TYPES.get(t.LineType, str(t.LineType))
+                elem = typ in ("beam", "rib", "truss")      # gap/spring/link records carry garbage material/section ids
+                self.lines.append({"n1": d.NodeId1, "n2": d.NodeId2, "geom": d.GeomType, "type": typ,
+                                   "mat": t.MaterialIndex if elem else 0, "sec": t.StartCrossSectionIndex if elem else 0,
+                                   "sec2": t.EndCrossSectionIndex if elem else 0,
                                    "member": members[i] if i < len(members) else 0})
         self.domains = [None]
         nd = m.Domains.Count
@@ -108,6 +111,12 @@ class Snapshot:
         d = [q[k] - p[k] for k in range(3)]
         length = math.sqrt(sum(c * c for c in d))
         horiz = math.hypot(d[0], d[1])
+        if self.lines[i]["geom"] != 0:            # arc etc.: the chord is not the length
+            try:
+                length = self.model.Lines.Item[i].Length
+            except Exception:
+                pass
+            return length, "curved (chord %s)" % num(math.sqrt(sum(c * c for c in d))), tuple((p[k] + q[k]) / 2 for k in range(3))
         if length < 1e-9:
             orient = "zero-length"
         elif horiz < 1e-3 * length:
@@ -145,7 +154,8 @@ class Snapshot:
         """Cheap content fingerprint for undo safety and deltas."""
         h = hash((tuple(self.nodes[1:]), tuple((L["n1"], L["n2"], L["type"], L["mat"], L["sec"]) for L in self.lines[1:]),
                   tuple((tuple(D["lines"]), D["type"], round(D["t"], 6), D["mat"]) for D in self.domains[1:]), self.nloads,
-                  tuple(self.cases[1:]), tuple(self.combos[1:])))
+                  tuple(self.cases[1:]), tuple(self.combos[1:]), tuple(sorted((n, len(v)) for n, v in self.nsup.items())),
+                  tuple(sorted((n, len(v)) for n, v in self.lsup.items())), tuple(self.mats[1:]), tuple(self.secs[1:])))
         return "%d/%d/%d/%d:%x" % (len(self.nodes) - 1, len(self.lines) - 1, len(self.domains) - 1, self.nloads, h & 0xFFFFFFFF)
 
     def counts(self):
@@ -169,7 +179,8 @@ def describe_line(s, i):
             sec += ">" + s.secs[L["sec2"]]
         parts.append('"%s"' % sec)
         parts.append(s.mats[L["mat"]] if 0 < L["mat"] < len(s.mats) else "?")
-    parts.append("n%d→n%d L=%s %s @%s" % (L["n1"], L["n2"], num(length), orient, xyz(mid, 2)))
+    # end nodes, not the local x direction: after a split AxisVM can store them swapped (detail shows start/end)
+    parts.append("n%d-n%d L=%s %s @%s" % (L["n1"], L["n2"], num(length), orient, xyz(mid, 2)))
     if L.get("member"):
         parts.append("[m%d]" % L["member"])
     if i in s.lsup:
@@ -181,6 +192,10 @@ def describe_domain(s, i):
     D = s.domains[i]
     area, c, nn, pts = s.domain_info(i)
     a = max(area, 1e-12)
+    try:
+        area = s.model.Domains.Item[i].Area          # net of openings (the contour area above is gross)
+    except Exception:
+        pass
     n = tuple(v / (2 * a) for v in nn)
     if abs(n[2]) > 0.99:
         orient = "horizontal n%sz" % ("+" if n[2] > 0 else "-")
@@ -212,7 +227,7 @@ def _line_keys(s):
     for i in range(1, len(s.lines)):
         L = s.lines[i]
         k = tuple(sorted((_r(s.nodes[L["n1"]]), _r(s.nodes[L["n2"]]))))
-        out[k] = (i, (L["type"], s.mats[L["mat"]] if L["mat"] < len(s.mats) else "", s.secs[L["sec"]] if L["sec"] < len(s.secs) else ""))
+        out[k] = (i, (L["type"], s.mats[L["mat"]] if 0 < L["mat"] < len(s.mats) else "", s.secs[L["sec"]] if 0 < L["sec"] < len(s.secs) else ""))
     return out
 
 
@@ -278,6 +293,10 @@ def delta(b, a, cap=12):
     ncb = [c for c in a.combos[1:] if c not in b.combos[1:]]
     if ncb:
         out.append("+ combinations: " + ", ".join(ncb))
+    for label, x, y in (("materials", b.mats, a.mats), ("sections", b.secs, a.secs)):
+        new = [n for n in y[1:] if n not in x[1:]]
+        if new:
+            out.append("+ %s: %s" % (label, trunc(", ".join(map(str, new)), 200)))
     renum = (removed or drem or gone_nodes) and (len(a.lines) > 1)
     if renum:
         out.append("note: AxisVM renumbers after deletes; re-query handles before reusing old ones")

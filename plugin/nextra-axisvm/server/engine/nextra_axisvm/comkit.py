@@ -269,6 +269,19 @@ def line_support(model, lid, spec, domains=()):
                  "line support on l%d" % lid)
 
 
+def release_dofs(spec):
+    """'hinge'/'pin' -> ('yy','zz') · 'rigid' -> () · 'free:yy,zz' -> ('yy','zz'); anything else raises."""
+    s = spec.strip().lower()
+    free = {"hinge": ("yy", "zz"), "pin": ("yy", "zz"), "pinned": ("yy", "zz"), "rigid": ()}.get(s)
+    if free is None:
+        word, _, dofs = s.partition(":")
+        free = tuple(x.strip() for x in dofs.split(",") if x.strip())
+        if word != "free" or not free or any(x not in ("x", "y", "z", "xx", "yy", "zz") for x in free):
+            raise NxError("release '%s' not understood" % spec,
+                          "hinge | rigid | free:yy,zz (dofs x y z xx yy zz). Semi-rigid springs: run with SetStartReleases")
+    return free
+
+
 def releases(model, lid, start=None, end=None):
     """start/end: 'hinge' (all rotations free except torsion) | 'pin' (same) | 'free:yy,zz' | 'rigid'."""
     a = ax()
@@ -276,11 +289,8 @@ def releases(model, lid, start=None, end=None):
     for which, spec in (("Start", start), ("End", end)):
         if not spec:
             continue
+        free = release_dofs(spec)
         cur = getattr(ln, "Get%sReleases" % which)()[0]
-        s = spec.lower()
-        free = {"hinge": ("yy", "zz"), "pin": ("yy", "zz"), "pinned": ("yy", "zz"), "rigid": ()}.get(s)
-        if free is None:
-            free = tuple(x.strip() for x in s.split(":", 1)[-1].split(",") if x.strip())
         for dof in ("x", "y", "z", "xx", "yy", "zz"):
             r = getattr(cur, dof)
             r.ReleaseType = a.rtHinged if dof in free else a.rtRigid
@@ -304,15 +314,16 @@ def nodal_force(model, case, node, F):
     return check(model.Loads.AddNodalForce(r), "nodal load on n%d" % node)
 
 
-def beam_load(model, case, lid, q, local=False):
-    """Uniform distributed load on a beam/rib [kN/m] over the whole length; q = (qx, qy, qz)."""
+def beam_load(model, case, lid, q, local=False, projected=False):
+    """Uniform distributed load on a beam/rib [kN/m] over the whole length; q = (qx, qy, qz).
+    projected: q per m of the length projected perpendicular to the load (e.g. snow on a rafter)."""
     a = ax()
     ln = model.Lines.Item[lid]
     rib = ln.LineType == a.ltRib
     # Position1/2 are absolute distances from the start node in m (not ratios): load the whole length
     vals = dict(LoadCaseId=case, LineId=lid, qx1=q[0], qy1=q[1], qz1=q[2], qx2=q[0], qy2=q[1], qz2=q[2],
                 SystemGLR=a.sysLocal if local else a.sysGlobal, Position1=0.0, Position2=float(ln.Length),
-                DistributionType=a.brdtLength, Trapezoid=a.lbFalse)
+                DistributionType=a.brdtProjected if projected else a.brdtLength, Trapezoid=a.lbFalse)
     r = getattr(a, "RLoadRibDistributed" if rib else "RLoadBeamDistributed")()
     names = {f[0] for f in r._fields_}
     for f, v in vals.items():

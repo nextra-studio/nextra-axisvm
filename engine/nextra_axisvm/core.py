@@ -103,7 +103,7 @@ def num(v, nd=3):
         return str(v)
     if abs(v) < 10 ** -(nd + 2):
         return "0"
-    if abs(v) >= 1e6 or (abs(v) < 1e-3):
+    if abs(v) >= 1e6 or abs(v) < 10 ** -nd:          # small but not zero: significant digits, never '0'
         return "%.*g" % (nd + 1, v)
     s = "%.*f" % (nd, v)
     return s.rstrip("0").rstrip(".") if "." in s else s
@@ -207,6 +207,9 @@ def status(args=None):
     from . import conn, win
     args = args or {}
     out, imgs = [], []
+    if args.get("instance") and "bound" not in STATE:      # state only, no COM: the next real call attaches
+        spec = str(args["instance"]).strip()
+        STATE["bound"] = {"pid": int(spec)} if spec.isdigit() else {"file": spec}
     if BUSY.get("tool"):
         out.append("busy: %s for %.0fs" % (BUSY["tool"], time.time() - (BUSY.get("since") or time.time())))
     else:

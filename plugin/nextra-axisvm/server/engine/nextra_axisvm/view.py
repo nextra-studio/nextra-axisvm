@@ -23,6 +23,17 @@ LINE_COL = {"beam": (31, 78, 160), "rib": (18, 130, 125), "truss": (214, 110, 20
 DOM_COL = {"plate": (170, 190, 220), "shell": (175, 215, 180), "membrane": (235, 215, 150), "membrane-strain": (235, 215, 150)}
 
 
+def _size(a, default):
+    v = a.get("size") or default
+    try:
+        W, H = int(v[0]), int(v[1])
+    except (TypeError, ValueError, IndexError):
+        raise NxError("size must be [width, height] in pixels, got %r" % (v,))
+    if not (100 <= W <= 4000 and 100 <= H <= 4000):
+        raise NxError("size %dx%d out of range" % (W, H), "100..4000 px each, e.g. size:[800,600]")
+    return W, H
+
+
 def run(a, r):
     target = (a.str("target", "model") or "model").lower()
     if target == "axisvm":
@@ -34,8 +45,7 @@ def run(a, r):
     if len(snap.nodes) <= 1:
         r.line("the model is empty (no nodes)")
         return
-    W, H = (a.get("size") or [800, 600])[:2]
-    W, H = int(W), int(H)
+    W, H = _size(a, [800, 600])
     focus = (a.str("focus") or "").strip()
     vname = (a.str("view") or (STATE.get("last_view") or {}).get("view") if re.fullmatch(r"[A-H][1-8](:[A-H][1-8])?", focus) else a.str("view")) or "iso"
     if vname not in EYES:
@@ -352,8 +362,8 @@ def axisvm_capture(a, r):
         raise NxError("AxisVM could not save its window (%s)" % (rc,))
     from PIL import Image
     im = Image.open(bmp).convert("RGB")
-    W, H = (a.get("size") or [1000, 750])[:2]
-    im.thumbnail((int(W), int(H)))
+    W, H = _size(a, [1000, 750])
+    im.thumbnail((W, H))
     png = bmp[:-4] + ".png"
     im.save(png)
     try:
