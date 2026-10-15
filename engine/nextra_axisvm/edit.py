@@ -71,6 +71,7 @@ class Ctx:
         self.default = {}
         self.nodes = None
         self.created = {"l": [], "d": [], "n": []}
+        self.split_mark = 0
 
     @property
     def ni(self):
@@ -125,6 +126,11 @@ def apply_ops(s, text, r, atomic=False, dry=False):
         try:
             res = op(ctx, line, dry)
             ok += 1
+            if ctx.nodes is not None and len(ctx.nodes.created) > ctx.split_mark and not dry:
+                n = split_existing(ctx)          # new nodes on existing lines: split now, so later lines see the parts
+                ctx.split_mark = len(ctx.nodes.created)
+                if n:
+                    res = (res + "; " if res else "") + "split %d existing line(s) at new node(s)" % n
             if res:
                 r.line("L%d: %s" % (no, res))
         except NxError as e:
@@ -137,10 +143,6 @@ def apply_ops(s, text, r, atomic=False, dry=False):
             r.line("L%d `%s`: %s" % (no, trunc(line, 80), conn.explain_com_error(e)))
             if atomic:
                 raise NxError("atomic: stopped at L%d; whole edit reverted" % no)
-    if ctx.nodes is not None and ctx.nodes.created and not dry:
-        n = split_existing(ctx)
-        if n:
-            r.line("split %d existing line(s) at new nodes (connected)" % n)
     r.ok = fail == 0 or ok > 0
     r.lines.insert(0, "%s: %d/%d lines applied" % ("ok" if fail == 0 else "partial" if ok else "FAILED", ok, ok + fail))
     if fail and ok:
@@ -150,7 +152,7 @@ def apply_ops(s, text, r, atomic=False, dry=False):
 def split_existing(ctx):
     """New nodes that lie inside an existing line: split that line there, so the structure is connected."""
     m, ni = ctx.m, ctx.nodes
-    new = set(ni.created)
+    new = set(ni.created[ctx.split_mark:])
     count = 0
     for _ in range(50):                        # one split per line per pass; ids are re-read every pass
         snap = Snapshot(m, loads=False)
@@ -216,6 +218,16 @@ def node_of(ctx, p, off=(0, 0, 0)):
     return ctx.ni.get((p[0] + off[0], p[1] + off[1], p[2] + off[2]))
 
 
+def check_ids(m, kind, ids):
+    """Fail with a clear message when a handle does not exist (instead of a NULL COM pointer)."""
+    count = {"l": m.Lines.Count, "d": m.Domains.Count, "n": m.Nodes.Count}[kind]
+    bad = [i for i in ids if not 0 < i <= count]
+    if bad:
+        raise NxError("%s does not exist (the model has %d %s)" % (ranges(bad, kind), count,
+                      {"l": "lines", "d": "domains", "n": "nodes"}[kind]), "query {} / query {filter:'…'} for current handles")
+    return ids
+
+
 def handles(toks, prefix):
     out = []
     for t in toks:
@@ -269,6 +281,7 @@ def op(ctx, line, dry):
         lids = handles(toks, "l")
         made = []
         if lids:                                        # define existing lines
+            check_ids(m, "l", lids)
             for lid in lids:
                 if kind:
                     k.define_line(m, lid, kind, ctx.mat(kv.get("mat")), ctx.sec(kv.get("sec")), ctx.sec(kv["sec2"]) if kv.get("sec2") else None)
@@ -343,8 +356,12 @@ def op(ctx, line, dry):
         nodes = _select_nodes(ctx, targets, kv)
         for n in nodes:
             out.append("ns%d" % k.nodal_support(m, n, spec))
-        for lid in handles([t for t in targets if t.startswith("l")], "l") or []:
-            out.append("ls%d" % k.line_support(m, lid, spec))
+        lsup = check_ids(m, "l", handles([t for t in targets if t.startswith("l")], "l") or [])
+        if lsup:
+            snap = Snapshot(m, loads=False)
+            for lid in lsup:
+                doms = [d for d in range(1, len(snap.domains)) if lid in snap.domains[d]["lines"]]
+                out.append("ls%d" % k.line_support(m, lid, spec, doms))
         if not out:
             raise NxError("support: no node/line selected", "support n1 n4 fixed · support 0,0,0 6,0,0 pinned · support z=0 fixed · support l3 pinned")
         return "%s %s ×%d" % (spec, " ".join(out[:6]) + (" …" if len(out) > 6 else ""), len(out))
@@ -353,6 +370,7 @@ def op(ctx, line, dry):
         lids = handles(toks, "l")
         if not lids:
             raise NxError("release l3 l4 start=hinge end=hinge (or both=hinge)")
+        check_ids(m, "l", lids)
         b = kv.get("both")
         for lid in lids:
             k.releases(m, lid, start=kv.get("start", b), end=kv.get("end", b))
@@ -377,8 +395,8 @@ def op(ctx, line, dry):
         v = lambda key: float(kv.get(key, 0) or 0)
         local = "local" in targets or kv.get("sys", "").startswith("l")
         targets = [t for t in targets if t not in ("local", "global")]
-        n_l = handles([t for t in targets if t.startswith("l")], "l") or []
-        n_d = handles([t for t in targets if t.startswith("d")], "d") or []
+        n_l = check_ids(m, "l", handles([t for t in targets if t.startswith("l")], "l") or [])
+        n_d = check_ids(m, "d", handles([t for t in targets if t.startswith("d")], "d") or [])
         n_n = _select_nodes(ctx, [t for t in targets if not t.startswith(("l", "d"))], {})
         cnt = 0
         for n in n_n:
@@ -427,6 +445,7 @@ def op(ctx, line, dry):
         lids = handles([t for t in toks if t.startswith("l")], "l") or []
         if not lids:
             raise NxError("set l3 l4 sec=IPE 330 [mat=…] [type=beam|rib|truss]")
+        check_ids(m, "l", lids)
         snap = Snapshot(m, loads=False)
         for lid in lids:
             L = snap.lines[lid]

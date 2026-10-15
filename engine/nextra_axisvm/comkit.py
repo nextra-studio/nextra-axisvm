@@ -261,9 +261,11 @@ def nodal_support(model, node, spec):
                  "support at n%d" % node)
 
 
-def line_support(model, lid, spec):
+def line_support(model, lid, spec, domains=()):
+    """Global line support. On a domain edge AxisVM needs the domain id(s) the edge belongs to."""
     a = ax()
-    return check(model.LineSupports.AddEdgeGlobal(stiffness(spec), a.RNonLinearity(), a.RResistances(), lid, 0, 0, 0, 0),
+    d = list(domains) + [0, 0]
+    return check(model.LineSupports.AddEdgeGlobal(stiffness(spec), a.RNonLinearity(), a.RResistances(), lid, 0, 0, d[0], d[1]),
                  "line support on l%d" % lid)
 
 
@@ -305,9 +307,11 @@ def nodal_force(model, case, node, F):
 def beam_load(model, case, lid, q, local=False):
     """Uniform distributed load on a beam/rib [kN/m] over the whole length; q = (qx, qy, qz)."""
     a = ax()
-    rib = model.Lines.Item[lid].LineType == a.ltRib
+    ln = model.Lines.Item[lid]
+    rib = ln.LineType == a.ltRib
+    # Position1/2 are absolute distances from the start node in m (not ratios): load the whole length
     vals = dict(LoadCaseId=case, LineId=lid, qx1=q[0], qy1=q[1], qz1=q[2], qx2=q[0], qy2=q[1], qz2=q[2],
-                SystemGLR=a.sysLocal if local else a.sysGlobal, Position1=0.0, Position2=1.0,
+                SystemGLR=a.sysLocal if local else a.sysGlobal, Position1=0.0, Position2=float(ln.Length),
                 DistributionType=a.brdtLength, Trapezoid=a.lbFalse)
     r = getattr(a, "RLoadRibDistributed" if rib else "RLoadBeamDistributed")()
     names = {f[0] for f in r._fields_}
