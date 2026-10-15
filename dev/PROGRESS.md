@@ -20,9 +20,11 @@ Read dev/PLAN.md first (architecture, the 6 tools, possible / not possible).
   force colours; AxisVM window capture), status with dialog screenshot + answer (PrintWindow, BM_CLICK).
   Verified numbers: 2-bay frame + slab G reactions 323 kN, ULS 706 kN (hand check ok).
 
-## Next steps
-1. bridge/server/index.js (Node, spawns venv python engine/worker.py; routes query scope status -> __status;
-   timeouts; auto-run setup when venv missing).
-2. skill/nextra-axisvm (SKILL.md, shorthand.md, workflows.md, api/axisvm-com.md, library/rhino_export.py for Rhino side).
-3. tools/make_plugin.py (+ codex/claude manifests, marketplaces, zips, mcpb), README install guide, test/regress.py.
-4. Ask user before creating/pushing GitHub repo nextra-studio/nextra-axisvm.
+- Bridge (auto setup on first use verified), skill docs, Rhino exporter, packaging (plugin/, marketplaces, dist zips,
+  mcpb, Setup zip), README install guide. Regression: 34/34 with --launch and --instance (hand-calc checks).
+
+## Open items
+- Publish: create GitHub repo nextra-studio/nextra-axisvm, push, gh release with dist/ files (ask the user first).
+- rhino/rhino_export.py not yet run inside Rhino (needs Rhino 8 open); the JSON import side is tested.
+- Not yet observed: whether AxisVM asks anything on close while the add-on is loaded (registration is weak, expected no).
+- Nonlinear/vibration/buckling and design checks only via run (no shorthand).
