@@ -99,7 +99,7 @@ namespace NextraAxisVM
                   + "With several AxisVM windows open, tell it which file to use."
                 : "Could not connect this AxisVM to the AI tools:\r\n\r\n" + Publisher.LastError
                   + "\r\n\r\nLog: " + Path.Combine(Publisher.AppDir, "addon.log");
-            MessageBox.Show(msg, "Nextra AI", MessageBoxButtons.OK, ok ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+            using (var dialog = new StatusForm(msg, ok)) dialog.ShowDialog();
             return 1;
         }
     }
