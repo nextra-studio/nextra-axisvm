@@ -88,3 +88,81 @@ def dialogs(pid):
     ws = windows(pid)
     modal = any(not en for _, _, _, en in ws)
     return [(t or "(untitled)", c) for _, t, c, en in ws if en and (modal or c == "#32770")]
+
+
+# ------------------------------------------------------------------ dialog inspection / capture / answer
+def _children(hwnd):
+    out = []
+
+    def cb(c, _):
+        n = user32.GetWindowTextLengthW(c)
+        b = ctypes.create_unicode_buffer(n + 1)
+        user32.GetWindowTextW(c, b, n + 1)
+        k = ctypes.create_unicode_buffer(128)
+        user32.GetClassNameW(c, k, 128)
+        out.append((c, k.value, b.value))
+        return True
+
+    user32.EnumChildWindows(hwnd, WNDENUMPROC(cb), 0)
+    return out
+
+
+def dialog_details(pid):
+    """[(hwnd, title, class, [button captions], [static texts])] of the modal windows of a process."""
+    ws = windows(pid)
+    modal = any(not en for _, _, _, en in ws)
+    out = []
+    for hwnd, title, cls, en in ws:
+        if not en or not (modal or cls == "#32770"):
+            continue
+        kids = _children(hwnd)
+        buttons = [t.replace("&", "") for _, k, t in kids if "button" in k.lower() and t.strip()]
+        texts = [t for _, k, t in kids if ("static" in k.lower() or "label" in k.lower()) and t.strip()]
+        out.append((hwnd, title or "(untitled)", cls, buttons, texts))
+    return out
+
+
+def capture(hwnd, path):
+    """Screenshot of one window (PrintWindow, works when covered) -> PNG path."""
+    from PIL import Image
+    gdi32 = ctypes.WinDLL("gdi32")
+    r = wintypes.RECT()
+    user32.GetWindowRect(hwnd, ctypes.byref(r))
+    w, h = r.right - r.left, r.bottom - r.top
+    if w <= 0 or h <= 0:
+        return None
+    hdc = user32.GetWindowDC(hwnd)
+    mdc = gdi32.CreateCompatibleDC(hdc)
+    bmp = gdi32.CreateCompatibleBitmap(hdc, w, h)
+    gdi32.SelectObject(mdc, bmp)
+    try:
+        user32.PrintWindow(hwnd, mdc, 2)
+
+        class BI(ctypes.Structure):
+            _fields_ = [("biSize", ctypes.c_uint32), ("biWidth", ctypes.c_int32), ("biHeight", ctypes.c_int32),
+                        ("biPlanes", ctypes.c_uint16), ("biBitCount", ctypes.c_uint16), ("biCompression", ctypes.c_uint32),
+                        ("a", ctypes.c_uint32), ("b", ctypes.c_int32), ("c", ctypes.c_int32), ("d", ctypes.c_uint32), ("e", ctypes.c_uint32)]
+
+        bi = BI(ctypes.sizeof(BI), w, -h, 1, 32, 0, 0, 0, 0, 0, 0)
+        buf = ctypes.create_string_buffer(w * h * 4)
+        gdi32.GetDIBits(mdc, bmp, 0, h, buf, ctypes.byref(bi), 0)
+        Image.frombuffer("RGBA", (w, h), buf, "raw", "BGRA", 0, 1).convert("RGB").save(path)
+        return path
+    finally:
+        gdi32.DeleteObject(bmp)
+        gdi32.DeleteDC(mdc)
+        user32.ReleaseDC(hwnd, hdc)
+
+
+BM_CLICK = 0x00F5
+
+
+def click(pid, caption):
+    """Press the button with this caption (case-insensitive, '&' ignored) in AxisVM's modal dialog."""
+    want = caption.replace("&", "").strip().lower()
+    for hwnd, title, cls, buttons, _ in dialog_details(pid):
+        for c, k, t in _children(hwnd):
+            if "button" in k.lower() and t.replace("&", "").strip().lower() == want:
+                user32.PostMessageW(c, BM_CLICK, 0, 0)
+                return "pressed '%s' in '%s'" % (t.replace("&", ""), title)
+    return None

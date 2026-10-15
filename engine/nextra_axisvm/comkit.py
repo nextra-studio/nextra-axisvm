@@ -35,7 +35,7 @@ class NodeIndex:
     """Coordinate lookup so the same point always becomes the same AxisVM node (tolerance in m)."""
 
     def __init__(self, model, tol=1e-3):
-        self.model, self.tol, self.grid = model, tol, {}
+        self.model, self.tol, self.grid, self.coord = model, tol, {}, {}
         n = model.Nodes.Count
         if n:
             coords = model.Nodes.BulkGetCoord(list(range(1, n + 1)))[0]
@@ -48,6 +48,27 @@ class NodeIndex:
 
     def _put(self, i, p):
         self.grid.setdefault(self._key(p), []).append((i, p))
+        self.coord[i] = p
+
+    def on_segment(self, a, b):
+        """Existing nodes strictly between nodes a and b on the straight segment, ordered from a to b."""
+        p, q = self.coord.get(a), self.coord.get(b)
+        if p is None or q is None:
+            return []
+        d = [q[k] - p[k] for k in range(3)]
+        L2 = sum(c * c for c in d)
+        if L2 <= 0:
+            return []
+        out = []
+        for i, r in self.coord.items():
+            if i in (a, b):
+                continue
+            t = sum((r[k] - p[k]) * d[k] for k in range(3)) / L2
+            if t <= 1e-9 or t >= 1 - 1e-9:
+                continue
+            if max(abs(p[k] + t * d[k] - r[k]) for k in range(3)) <= self.tol:
+                out.append((t, i))
+        return [i for _, i in sorted(out)]
 
     def find(self, p):
         k = self._key(p)
@@ -68,6 +89,13 @@ class NodeIndex:
         self._put(i, p)
         self.created.append(i)
         return i
+
+
+def chain(model, ni, n1, n2, split=True):
+    """Lines from n1 to n2, split at every existing node lying on the segment (so members connect and slab edges
+    reuse beam lines instead of overlapping them). Returns [(line id, created?)]."""
+    seq = [n1] + (ni.on_segment(n1, n2) if split else []) + [n2]
+    return [line_between(model, a, b) for a, b in zip(seq, seq[1:])]
 
 
 def line_between(model, n1, n2):
