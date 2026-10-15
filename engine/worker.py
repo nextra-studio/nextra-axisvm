@@ -44,7 +44,8 @@ def reader(q):
             continue
         if msg.get("tool") == "__status":       # answered without COM, even while the main thread is busy
             try:
-                send({"id": msg.get("id"), "ok": True, "text": core.status_text(), "images": []})
+                text, imgs = core.status(msg.get("args") or {})
+                send({"id": msg.get("id"), "ok": True, "text": text, "images": imgs})
             except Exception as e:
                 send({"id": msg.get("id"), "ok": False, "text": "status failed: %s" % e, "images": []})
             continue

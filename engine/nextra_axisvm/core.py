@@ -197,21 +197,41 @@ def dispatch(tool, args):
     return r
 
 
-def status_text():
-    """Runs on the reader thread: no COM. Busy state, bound instance, AxisVM dialogs."""
+def status_text(args=None):
+    return status(args)[0]
+
+
+def status(args=None):
+    """Runs on the reader thread: no COM. Busy state, bound instance, AxisVM dialogs (with screenshots);
+    args {answer:'Yes'} presses that button in AxisVM's dialog. Returns (text, images)."""
     from . import conn, win
-    out = []
+    args = args or {}
+    out, imgs = [], []
     if BUSY.get("tool"):
         out.append("busy: %s for %.0fs" % (BUSY["tool"], time.time() - (BUSY.get("since") or time.time())))
     else:
         out.append("idle")
     pid = (STATE.get("bound") or {}).get("pid")
     if pid:
-        out.append("bound: AxisVM pid %s %s" % (pid, (STATE.get("bound") or {}).get("file") or ""))
-        dlg = win.dialogs(int(pid))
+        out.append("bound: AxisVM pid %s %s" % (pid, os.path.basename((STATE.get("bound") or {}).get("file") or "")))
+        if args.get("answer"):
+            res = win.click(int(pid), str(args["answer"]))
+            out.append(res or "no dialog button '%s' found" % args["answer"])
+            time.sleep(1.0)
+        dlg = win.dialog_details(int(pid))
+        for i, (hwnd, title, cls, buttons, texts) in enumerate(dlg):
+            out.append("AxisVM dialog '%s' buttons [%s]%s (screenshot attached)" % (title, ", ".join(buttons),
+                                                                                  (" text: " + " / ".join(texts)) if texts else ""))
+            try:
+                os.makedirs(os.path.join(LOCALDIR, "captures"), exist_ok=True)
+                p = win.capture(hwnd, os.path.join(LOCALDIR, "captures", "dialog_%d_%d.png" % (int(time.time()), i)))
+                if p:
+                    imgs.append(p)
+            except Exception as e:
+                out.append("(capture failed: %s)" % e)
         if dlg:
-            out.append("AxisVM is showing: " + "; ".join("'%s' (%s)" % (t, c) for t, c in dlg))
-            out.append("COM calls wait until the dialog is closed. Tell the user what it says; it is not closed automatically.")
+            out.append("COM calls wait until it closes. Tell the user what it says. Press a button only when the choice is "
+                       "clearly safe or the user agreed: query {scope:'status', answer:'<button>'}.")
     for i in conn.instances(quick=True):
         out.append("instance pid %s (add-on %s)" % (i.get("pid"), i.get("addon")))
-    return "\n".join(out)
+    return "\n".join(out), imgs

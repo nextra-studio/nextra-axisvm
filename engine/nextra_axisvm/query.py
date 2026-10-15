@@ -45,8 +45,10 @@ def run(a, r):
             r.line(memory.lib_index(a.str("filter"), a.int("limit", 60)))
             r.line("run one: run {lib:'name', args:{…}} · read: query {scope:'library', name}")
     elif scope == "status":
-        from .core import status_text
-        r.line(status_text())
+        from .core import status
+        text, imgs = status({"answer": a.str("answer")})
+        r.line(text)
+        r.images += imgs
     elif scope == "instances":
         cs = conn.instances()
         r.line(conn.describe(cs) if cs else "no AxisVM with the NextraAxisVM add-on is running. " + conn.not_found_message())
