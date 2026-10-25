@@ -16,12 +16,14 @@ namespace NextraAxisVM
     ///
     /// The AxisVM application object itself is deliberately NOT put in the ROT: AxisVM disconnects it when its last
     /// COM client goes away (a weak entry dies with it), and a strong entry would count as a connected client and
-    /// change how AxisVM closes. The host is a plain .NET object, so its weak entry lives exactly as long as AxisVM.
+    /// change how AxisVM closes. The host is a plain .NET object and is registered STRONG: a weak (table-weak) entry is
+    /// torn down by COM as soon as the first client releases its last reference to the host, so the second connection
+    /// would get MK_E_UNAVAILABLE. Holding the host does not keep AxisVM open; Revoke() runs in Addon_Deinit.
     /// Also writes %APPDATA%\NextraAxisVM\instances\axisvm-&lt;pid&gt;.json so clients can list instances cheaply.
     /// </summary>
     internal static class Publisher
     {
-        const int ROTFLAGS_WEAK = 0;   // no REGISTRATIONKEEPSALIVE: never keeps AxisVM alive
+        const int ROTFLAGS_REGISTRATIONKEEPSALIVE = 1;   // strong entry for the host object only (see class comment)
 
         [DllImport("ole32.dll")] static extern int GetRunningObjectTable(int reserved, out IRunningObjectTable prot);
         [DllImport("ole32.dll")] static extern int CreateItemMoniker([MarshalAs(UnmanagedType.LPWStr)] string delim, [MarshalAs(UnmanagedType.LPWStr)] string item, out IMoniker ppmk);
@@ -49,7 +51,7 @@ namespace NextraAxisVM
                 Marshal.ThrowExceptionForHR(GetRunningObjectTable(0, out rot));
                 IMoniker mk;
                 Marshal.ThrowExceptionForHR(CreateItemMoniker("!", "NextraAxisVM.Host." + Pid, out mk));
-                hostCookie = rot.Register(ROTFLAGS_WEAK, HostObject, mk);
+                hostCookie = rot.Register(ROTFLAGS_REGISTRATIONKEEPSALIVE, HostObject, mk);
 
                 WriteInstanceFile();
                 LastError = "";
