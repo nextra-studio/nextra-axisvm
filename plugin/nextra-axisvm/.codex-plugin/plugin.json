@@ -6,7 +6,7 @@
     "name": "Tatsuki",
     "url": "https://github.com/nextra-studio/nextra-axisvm"
   },
-  "homepage": "https://github.com/nextra-studio/nextra-axisvm",
+  "homepage": "https://nextra.studio/",
   "repository": "https://github.com/nextra-studio/nextra-axisvm",
   "license": "Apache-2.0",
   "keywords": [
@@ -28,7 +28,7 @@
       "Read",
       "Write"
     ],
-    "websiteURL": "https://github.com/nextra-studio/nextra-axisvm",
+    "websiteURL": "https://nextra.studio/",
     "defaultPrompt": [
       "Build a two-bay steel frame with a concrete slab in AxisVM and analyse it",
       "Check the model I have open in AxisVM and summarise the results"
