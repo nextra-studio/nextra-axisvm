@@ -22,6 +22,7 @@ man = json.load(open(os.path.join(repo, "bridge", "manifest.json"), encoding="ut
 ver, desc = man["version"], man["description"]
 name = "nextra-axisvm"
 url = "https://github.com/nextra-studio/nextra-axisvm"
+home = "https://nextra.studio/"
 author = {"name": "Tatsuki", "url": url}
 keywords = ["axisvm", "structural", "fem", "mcp", "pyaxisvm"]
 root = os.path.join(repo, "plugin", name)
@@ -67,24 +68,24 @@ os.makedirs(os.path.join(root, "assets"), exist_ok=True)
 shutil.copy(os.path.join(repo, "docs", "img", "icon.svg"), os.path.join(root, "assets", "icon.svg"))
 
 write(os.path.join(root, ".claude-plugin", "plugin.json"), {
-    "name": name, "version": ver, "description": desc, "author": author, "homepage": url, "repository": url,
+    "name": name, "version": ver, "description": desc, "author": author, "homepage": home, "repository": url,
     "license": "Apache-2.0", "keywords": keywords})
 write(os.path.join(root, ".mcp.json"), {"mcpServers": {name: {"command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/server/index.js"],
                                                              "env": {"NEXTRA_MODE": "full"}}}})
 write(os.path.join(repo, ".claude-plugin", "marketplace.json"), {
     "name": name, "owner": {"name": "Tatsuki"}, "description": "NextraAxisVM: AxisVM tools and skill for AI agents",
     "plugins": [{"name": name, "displayName": "NextraAxisVM", "description": desc, "version": ver, "category": "engineering",
-                 "source": "./plugin/" + name, "homepage": url}]})
+                 "source": "./plugin/" + name, "homepage": home}]})
 write(os.path.join(root, "codex.mcp.json"), {"mcpServers": {name: {"command": "node", "args": ["server/index.js"], "cwd": ".",
                                                                  "env": {"NEXTRA_MODE": "full"}, "startup_timeout_sec": 30,
                                                                  "tool_timeout_sec": 1200}}})
 write(os.path.join(root, ".codex-plugin", "plugin.json"), {
-    "name": name, "version": ver, "description": desc, "author": author, "homepage": url, "repository": url,
+    "name": name, "version": ver, "description": desc, "author": author, "homepage": home, "repository": url,
     "license": "Apache-2.0", "keywords": keywords, "skills": "./skills/", "mcpServers": "./codex.mcp.json",
     "interface": {
         "displayName": "NextraAxisVM", "shortDescription": "AxisVM structural analysis tools",
         "longDescription": desc + " Works on the AxisVM model you have open (NextraAxisVM add-on, installed automatically on first use).",
-        "developerName": "Tatsuki", "category": "Engineering", "capabilities": ["Read", "Write"], "websiteURL": url,
+        "developerName": "Tatsuki", "category": "Engineering", "capabilities": ["Read", "Write"], "websiteURL": home,
         "defaultPrompt": ["Build a two-bay steel frame with a concrete slab in AxisVM and analyse it",
                           "Check the model I have open in AxisVM and summarise the results"],
         "brandColor": "#1A7F37", "composerIcon": "./assets/icon.svg", "logo": "./assets/icon.svg"}})
