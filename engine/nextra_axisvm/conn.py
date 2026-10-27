@@ -157,10 +157,11 @@ def launch_allowed():
 def not_found_message():
     running = win.axisvm_pids()
     if running:
-        return ("AxisVM is running (pid %s) but the NextraAxisVM add-on is not loaded in it. Ask the user to run Setup.bat "
-                "(installs the add-on) and restart AxisVM once; the add-on then connects automatically."
+        return ("AxisVM is running (pid %s) but the NextraAxisVM add-on is not loaded in it. Ask the user to go to the Elements tab "
+                "and click the green Nextra N icon to start linking, then retry. If the icon is missing, run Setup.bat, "
+                "restart AxisVM and click the icon in Elements."
                 % ", ".join(map(str, running)))
-    return "AxisVM is not running. Ask the user to open AxisVM (with the NextraAxisVM add-on) and their model."
+    return "AxisVM is not running. Ask the user to open AxisVM themselves and their model, then go to the Elements tab and click the green Nextra N icon to start linking."
 
 
 def get():

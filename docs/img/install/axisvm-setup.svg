@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="760" height="330" viewBox="0 0 760 330" role="img" aria-labelledby="title desc">
   <title id="title">Set up the AxisVM connection</title>
-  <desc id="desc">Download NextraAxisVM-Setup.zip. Extract All, open the extracted folder and run Setup.bat. Wait for setup to finish, then reopen AxisVM and look for Nextra AI in the add-on menu.</desc>
+  <desc id="desc">Download NextraAxisVM-Setup.zip. Extract All, open the extracted folder and run Setup.bat. Wait for setup to finish, then open AxisVM, go to Elements and click the green Nextra N icon to start linking.</desc>
   <rect width="760" height="330" rx="16" fill="#f3f5f4"/>
   <g font-family="Segoe UI,Arial,sans-serif" fill="#172e38">
     <text x="30" y="42" font-size="22" font-weight="600">AxisVM setup, once per computer</text>
@@ -11,15 +11,18 @@
     <g font-size="16" font-weight="600">
       <text x="30" y="193">1. Extract All</text>
       <text x="275" y="193">2. Run Setup.bat</text>
-      <text x="520" y="193">3. Reopen AxisVM</text>
+      <text x="520" y="193">3. Start linking</text>
     </g>
     <g font-size="14" fill="#465d66">
       <text x="30" y="220">Right-click the ZIP.</text>
       <text x="30" y="242">Choose Extract All.</text>
       <text x="275" y="220">Open the extracted folder.</text>
       <text x="275" y="242">Double-click Setup.bat.</text>
-      <text x="520" y="220">Wait for setup to finish.</text>
-      <text x="520" y="242">Look for Nextra AI.</text>
+      <text x="520" y="220">Open AxisVM. Go to Elements.</text>
+      <text x="520" y="246">Click</text>
+      <rect x="555" y="228" width="24" height="24" rx="2" fill="#228044"/>
+      <text x="567" y="247" text-anchor="middle" font-size="21" font-weight="700" fill="#fff">N</text>
+      <text x="587" y="246">to start linking.</text>
     </g>
     <path d="M250 180v68M495 180v68" stroke="#c6d1d3"/>
     <text x="30" y="294" font-size="14">Allow 1 to 4 minutes. Setup installs the connection and supporting files for you.</text>

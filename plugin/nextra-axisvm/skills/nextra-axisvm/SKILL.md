@@ -13,8 +13,10 @@ The tools (`view`, `query`, `edit`, `run`, `undo`, `memory`) run on the user's c
 2. **Load the tools:** tool search `nextra` (names may be prefixed, e.g. `mcp__…nextra-axisvm…__query`).
 3. **First call:** `memory {action:'list'}`.
 4. Still no tools? Repeat 1–3 once. Then tell the user in one message that the AxisVM tools did not attach, and ask them to keep the Claude desktop app running and reply "retry".
-- "installing its Python environment": first use. Setup runs in the background for 1–4 minutes. Tell the user and retry later. AxisVM needs one restart afterwards.
-- "AxisVM is running but the add-on is not loaded": ask the user to run **Setup.bat** and restart AxisVM. "not running": ask them to open AxisVM and their model. Work only in the AxisVM the user opened; never start another one.
+- "installing its Python environment": first use. Setup runs in the background for 1–4 minutes. Tell the user and retry later. AxisVM needs one restart afterwards; then tell the user to go to **Elements** and click the **green Nextra “N” icon** to start linking before retrying.
+- **AxisVM not running:** tell the user to open AxisVM themselves and open their model (or an empty model), then go to the **Elements** tab and click the **green Nextra “N” icon** to start linking. Work only in the AxisVM the user opened; never start another one.
+- **AxisVM open but not connected / add-on not loaded / not reachable:** first tell the user: “In AxisVM, go to the Elements tab and click the green Nextra N icon to start linking, then retry your request.” Repeat this instruction after an AxisVM restart. Do not assume opening AxisVM alone starts the link, and do not repeatedly call disconnected model tools.
+- If the icon is missing, ask the user to run **Setup.bat**, restart AxisVM, then click the icon in **Elements**. If clicking it does not restore the connection, check that AxisVM and the AI app run at the same privilege level, normally both without administrator rights. Retry `query {scope:'instances'}` after the user has started the link; only report a connection when the tools confirm it.
 
 ## Several AxisVM windows
 The session binds to one AxisVM. With several open, call `query {scope:'instances'}`, then `query {instance:'house.axs'}` (file name or pid; sticky). It never switches on its own.

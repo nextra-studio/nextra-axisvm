@@ -12,7 +12,7 @@ There are two parts: **add the plug-in to your AI app**, then **set up the AxisV
 
 1. Follow **Your AI app** below. Choose either marketplace installation or its ZIP.
 2. Click **Download AxisVM setup**, extract the ZIP and run **Setup.bat**. Setup installs the connection and supporting files for you.
-3. Reopen AxisVM and send the example request under **Try it**.
+3. Open AxisVM yourself, go to **Elements** and click the **green Nextra “N” icon** to start linking. Then send the example request under **Try it**.
 
 ### 1. Your AI app
 
@@ -123,20 +123,21 @@ Or download the Claude ZIP, extract it, and start `claude --plugin-dir PATH_TO_E
 
 **[Download AxisVM setup (NextraAxisVM-Setup.zip)](https://github.com/nextra-studio/nextra-axisvm/releases/latest/download/NextraAxisVM-Setup.zip)**
 
-[![AxisVM setup: download the ZIP, Extract All, run Setup.bat, then reopen AxisVM](docs/img/install/axisvm-setup.svg)](https://github.com/nextra-studio/nextra-axisvm/releases/latest/download/NextraAxisVM-Setup.zip)
+[![AxisVM setup: download the ZIP, Extract All, run Setup.bat, then click the green Nextra N icon in Elements](docs/img/install/axisvm-setup.svg)](https://github.com/nextra-studio/nextra-axisvm/releases/latest/download/NextraAxisVM-Setup.zip)
 
 1. **Save your model and close AxisVM.**
 2. **Download the setup ZIP** using the link above.
 3. Right-click `NextraAxisVM-Setup.zip` → **Extract All**. Open the extracted folder.
 4. **Double-click `Setup.bat`**. Setup installs the AxisVM add-on and supporting files for you. Allow **1–4 minutes** with an internet connection. Follow any prompts; administrator approval is only requested if the AxisVM folder needs it.
-5. When setup finishes, **reopen AxisVM**. Look for **Nextra AI** in the add-on menu. Restart your AI app too if setup installed supporting software.
-6. Send the example request below.
+5. When setup finishes, **open AxisVM yourself** and open your model (or an empty model). Restart your AI app too if setup installed supporting software.
+6. In AxisVM, go to the **Elements** tab and click the **green Nextra “N” icon**. This starts linking AxisVM to the AI tools.
+7. Keep AxisVM open and send the example request below. **Repeat Elements → Nextra “N” after restarting AxisVM.**
 
 **What does “automatic setup” mean?**
 
 You can also let the AI plug-in start setup. After installing the plug-in, open AxisVM and send the **Try it** message below. The **first tool call** starts the setup script in the background; downloading the plug-in alone does not start it.
 
-Wait **1–4 minutes**, **restart AxisVM once**, then **repeat your request**. If setup cannot finish or needs administrator approval, use **Download AxisVM setup** above and run `Setup.bat` to see the progress and follow its prompts.
+Wait **1–4 minutes**, **restart AxisVM once**, go to **Elements** and click the **green Nextra “N” icon**, then **repeat your request**. If setup cannot finish or needs administrator approval, use **Download AxisVM setup** above and run `Setup.bat` to see the progress and follow its prompts.
 
 <details>
 <summary>What setup installs</summary>
@@ -145,13 +146,13 @@ Wait **1–4 minutes**, **restart AxisVM once**, then **repeat your request**. I
 - The NextraAxisVM add-on in AxisVM's `AddOns` folder.
 - Checks for the supporting software and AxisVM registration.
 
-Once setup is complete and AxisVM has restarted, the add-on connects whenever AxisVM opens.
+Setup installs the add-on. To start linking, open AxisVM yourself, go to **Elements** and click the **green Nextra “N” icon**. Repeat this after restarting AxisVM.
 
 </details>
 
 ### Try it
 
-Open AxisVM first (any model, or an empty one), then:
+Open AxisVM yourself (any model, or an empty one), go to **Elements**, and click the **green Nextra “N” icon** to start linking. Keep AxisVM open, then:
 
 | App | Message |
 |---|---|
@@ -163,9 +164,9 @@ Open AxisVM first (any model, or an empty one), then:
 
 | Problem | Fix |
 |---|---|
-| "installing its Python environment" | First use. Wait 1–4 minutes and ask again. Then restart AxisVM once. |
-| "AxisVM is running but the add-on is not loaded" | Restart AxisVM. If that does not help, run `Setup.bat` (it reports where the add-on went), then restart AxisVM. |
-| "not reachable" although AxisVM is open | AxisVM and the AI app run at different privilege levels (one "as administrator"). Start both normally. |
+| "installing its Python environment" | First use. Wait 1–4 minutes, restart AxisVM, then go to **Elements** and click the **green Nextra “N” icon** before asking again. |
+| "AxisVM is running but the add-on is not loaded" | Go to **Elements** and click the **green Nextra “N” icon**, then retry. If the icon is missing, run `Setup.bat`, restart AxisVM, and click the icon in **Elements**. |
+| "not reachable" although AxisVM is open | First click the **green Nextra “N” icon** in **Elements** and retry. If it still fails, start AxisVM and the AI app at the same privilege level, normally both without administrator rights. |
 | A call hangs | AxisVM is showing a dialog. The AI sees it with `query {scope:'status'}` (with a screenshot). Answer the dialog in AxisVM. |
 | No tools in the AI app | Confirm the plugin is installed, restart the app, start a new session (ChatGPT: **Work**, not Chat). |
 | Several AxisVM windows | Name the file: "Use bridge.axs." |
