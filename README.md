@@ -6,8 +6,6 @@ Six token-lean tools let an LLM read, build, analyse and change AxisVM models, i
 
 ## Install
 
-**Windows · AxisVM X7 or newer (tested with X8 r1o) · [Node.js](https://nodejs.org) 18+.**
-
 ### 1. Your AI app
 
 Choose your AI app below. For ChatGPT/Codex and Claude, **install from this GitHub marketplace** for the easiest update path, or **download the ZIP**. Both install the same plugin; pick one.
