@@ -2,9 +2,17 @@
 
 Six token-lean tools let an LLM read, build, analyse and change AxisVM models, including **the model you already have open**. It works from ChatGPT desktop / Codex, Claude Desktop, Claude Code, or any MCP client. It is built on [PyAxisVM](https://axisvm.github.io/pyaxisvm-docs/) and has the same structure as [NextraRhinoGh](https://github.com/nextra-studio/nextra-rhinogh). Replies state what changed, pictures carry tags the model can point at, and every change is one AxisVM undo step.
 
-**[Install from the marketplace](#install)** · **[Download Claude ZIP](https://github.com/nextra-studio/nextra-axisvm/releases/latest/download/nextra-axisvm-plugin.zip)** · **[Download ChatGPT/Codex ZIP](https://github.com/nextra-studio/nextra-axisvm/releases/latest/download/nextra-axisvm-gpt-plugin.zip)**
+**[Install guide](#install)** · **[Download AxisVM setup](https://github.com/nextra-studio/nextra-axisvm/releases/latest/download/NextraAxisVM-Setup.zip)** · **[Download Claude ZIP](https://github.com/nextra-studio/nextra-axisvm/releases/latest/download/nextra-axisvm-plugin.zip)** · **[Download ChatGPT/Codex ZIP](https://github.com/nextra-studio/nextra-axisvm/releases/latest/download/nextra-axisvm-gpt-plugin.zip)**
 
 ## Install
+
+You need **Windows**, **AxisVM X7 or newer**, an **internet connection for setup**, and your AI desktop app.
+
+There are two parts: **add the plug-in to your AI app**, then **set up the AxisVM connection**. Installing the AI plug-in alone does not finish the AxisVM side.
+
+1. Follow **Your AI app** below. Choose either marketplace installation or its ZIP.
+2. Click **Download AxisVM setup**, extract the ZIP and run **Setup.bat**. Setup installs the connection and supporting files for you.
+3. Reopen AxisVM and send the example request under **Try it**.
 
 ### 1. Your AI app
 
@@ -111,16 +119,35 @@ Or download the Claude ZIP, extract it, and start `claude --plugin-dir PATH_TO_E
 
 </details>
 
-### 2. AxisVM side: automatic
+### 2. Set up the AxisVM connection
 
-**Nothing to type in a terminal.** The first time the AI uses NextraAxisVM, the plugin sets up everything in the background (about 1–4 minutes):
+**[Download AxisVM setup (NextraAxisVM-Setup.zip)](https://github.com/nextra-studio/nextra-axisvm/releases/latest/download/NextraAxisVM-Setup.zip)**
 
-- Python 3.10 with **PyAxisVM**, in `%LOCALAPPDATA%\NextraAxisVM\venv` (pinned versions; your own Python is not touched),
-- the **NextraAxisVM add-on** in AxisVM's `AddOns` folder,
+[![AxisVM setup: download the ZIP, Extract All, run Setup.bat, then reopen AxisVM](docs/img/install/axisvm-setup.svg)](https://github.com/nextra-studio/nextra-axisvm/releases/latest/download/NextraAxisVM-Setup.zip)
 
-then **restart AxisVM once**. From then on, every AxisVM you open connects automatically. A **Nextra AI** item in AxisVM's add-on menu shows the connection state.
+1. **Save your model and close AxisVM.**
+2. **Download the setup ZIP** using the link above.
+3. Right-click `NextraAxisVM-Setup.zip` → **Extract All**. Open the extracted folder.
+4. **Double-click `Setup.bat`**. Setup installs the AxisVM add-on and supporting files for you. Allow **1–4 minutes** with an internet connection. Follow any prompts; administrator approval is only requested if the AxisVM folder needs it.
+5. When setup finishes, **reopen AxisVM**. Look for **Nextra AI** in the add-on menu. Restart your AI app too if setup installed supporting software.
+6. Send the example request below.
 
-Prefer to install it beforehand? **[Download NextraAxisVM-Setup.zip](https://github.com/nextra-studio/nextra-axisvm/releases/latest/download/NextraAxisVM-Setup.zip)**, extract it, and **double-click `Setup.bat`**. It shows each step and asks for administrator rights only if AxisVM's folder is not writable.
+**What does “automatic setup” mean?**
+
+You can also let the AI plug-in start setup. After installing the plug-in, open AxisVM and send the **Try it** message below. The **first tool call** starts the setup script in the background; downloading the plug-in alone does not start it.
+
+Wait **1–4 minutes**, **restart AxisVM once**, then **repeat your request**. If setup cannot finish or needs administrator approval, use **Download AxisVM setup** above and run `Setup.bat` to see the progress and follow its prompts.
+
+<details>
+<summary>What setup installs</summary>
+
+- A separate Python 3.10 environment with PyAxisVM in `%LOCALAPPDATA%\NextraAxisVM\venv`. Your own Python installation is not changed.
+- The NextraAxisVM add-on in AxisVM's `AddOns` folder.
+- Checks for the supporting software and AxisVM registration.
+
+Once setup is complete and AxisVM has restarted, the add-on connects whenever AxisVM opens.
+
+</details>
 
 ### Try it
 

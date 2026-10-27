@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="330" viewBox="0 0 760 330" role="img" aria-labelledby="title desc">
+  <title id="title">Set up the AxisVM connection</title>
+  <desc id="desc">Download NextraAxisVM-Setup.zip. Extract All, open the extracted folder and run Setup.bat. Wait for setup to finish, then reopen AxisVM and look for Nextra AI in the add-on menu.</desc>
+  <rect width="760" height="330" rx="16" fill="#f3f5f4"/>
+  <g font-family="Segoe UI,Arial,sans-serif" fill="#172e38">
+    <text x="30" y="42" font-size="22" font-weight="600">AxisVM setup, once per computer</text>
+    <text x="30" y="69" font-size="15">Save your model and close AxisVM before running setup.</text>
+    <rect x="30" y="94" width="700" height="60" rx="10" fill="#172e38"/>
+    <text x="50" y="120" font-size="17" font-weight="600" fill="#fff">Download AxisVM setup (ZIP)</text>
+    <text x="50" y="142" font-size="14" fill="#dbe8e8">NextraAxisVM-Setup.zip</text>
+    <g font-size="16" font-weight="600">
+      <text x="30" y="193">1. Extract All</text>
+      <text x="275" y="193">2. Run Setup.bat</text>
+      <text x="520" y="193">3. Reopen AxisVM</text>
+    </g>
+    <g font-size="14" fill="#465d66">
+      <text x="30" y="220">Right-click the ZIP.</text>
+      <text x="30" y="242">Choose Extract All.</text>
+      <text x="275" y="220">Open the extracted folder.</text>
+      <text x="275" y="242">Double-click Setup.bat.</text>
+      <text x="520" y="220">Wait for setup to finish.</text>
+      <text x="520" y="242">Look for Nextra AI.</text>
+    </g>
+    <path d="M250 180v68M495 180v68" stroke="#c6d1d3"/>
+    <text x="30" y="294" font-size="14">Allow 1 to 4 minutes. Setup installs the connection and supporting files for you.</text>
+  </g>
+</svg>
