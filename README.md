@@ -256,3 +256,7 @@ Keep the ZIP file names stable so the download links keep working.
 ## License
 
 [Apache License 2.0](LICENSE). PyAxisVM is MIT-licensed by InterCAD. AxisVM is a product of InterCAD; NextraAxisVM is an independent project.
+
+## Privacy
+
+See [the privacy policy](PRIVACY.md) for local storage, information returned to your AI client, retention, and deletion choices.
