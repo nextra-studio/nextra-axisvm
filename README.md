@@ -2,9 +2,11 @@
 
 Six token-lean tools let an LLM read, build, analyse and change AxisVM models, including **the model you already have open**. It works from ChatGPT desktop / Codex, Claude Desktop, Claude Code, or any MCP client. It is built on [PyAxisVM](https://axisvm.github.io/pyaxisvm-docs/) and has the same structure as [NextraRhinoGh](https://github.com/nextra-studio/nextra-rhinogh). Replies state what changed, pictures carry tags the model can point at, and every change is one AxisVM undo step.
 
-**[Install guide](#install)** · **[Download AxisVM setup](https://github.com/nextra-studio/nextra-axisvm/releases/latest/download/NextraAxisVM-Setup.zip)** · **[Download Claude ZIP](https://github.com/nextra-studio/nextra-axisvm/releases/latest/download/nextra-axisvm-plugin.zip)** · **[Download ChatGPT/Codex ZIP](https://github.com/nextra-studio/nextra-axisvm/releases/latest/download/nextra-axisvm-gpt-plugin.zip)**
+**[Install guide (about 5 minutes)](#install)** · **[Download AxisVM setup](https://github.com/nextra-studio/nextra-axisvm/releases/latest/download/NextraAxisVM-Setup.zip)** · **[Download Claude ZIP](https://github.com/nextra-studio/nextra-axisvm/releases/latest/download/nextra-axisvm-plugin.zip)** · **[Download ChatGPT/Codex ZIP](https://github.com/nextra-studio/nextra-axisvm/releases/latest/download/nextra-axisvm-gpt-plugin.zip)**
 
 ## Install
+
+**About 5 minutes, no hassle:** add the plugin to your AI app, then double-click one setup file. Nothing to host, no extra subscription.
 
 You need **Windows**, **AxisVM X7 or newer**, an **internet connection for setup**, and your AI desktop app.
 
