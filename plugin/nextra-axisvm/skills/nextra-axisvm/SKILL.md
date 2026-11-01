@@ -1,6 +1,6 @@
 ---
 name: nextra-axisvm
-description: Drive AxisVM (structural finite element software) through the NextraAxisVM MCP tools (view, query, edit, run, undo, memory). Use for any AxisVM task: reading or checking the open model, building frames/slabs/walls, sections and materials, supports, loads, combinations, linear analysis, results (displacements, reactions, internal forces), DXF/IFC/AXS import, importing Rhino geometry, PyAxisVM / COM scripting. The tools run on the user's computer: in the Claude app, check the computer link (get_device_info) and tool-search "nextra" before concluding they are missing.
+description: "Drive AxisVM (structural finite element software) through the NextraAxisVM MCP tools (view, query, edit, run, undo, memory). Use for any AxisVM task: reading or checking the open model, building frames/slabs/walls, sections and materials, supports, loads, combinations, linear analysis, results (displacements, reactions, internal forces), DXF/IFC/AXS import, importing Rhino geometry, PyAxisVM / COM scripting. The tools run on the user's computer: in the Claude app, check the computer link (get_device_info) and tool-search \"nextra\" before concluding they are missing."
 ---
 
 # NextraAxisVM: AxisVM
