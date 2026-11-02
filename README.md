@@ -51,6 +51,8 @@ The pictures are simplified guides of the app menus. Labels can vary by version.
 
 ![ChatGPT Desktop marketplace setup](docs/img/install/openai-marketplace.svg)
 
+**Add marketplace fails or says it cannot clone from Git?** This sometimes happens in ChatGPT. Close ChatGPT completely: open **Task Manager** (type it in the Windows search), search **ChatGPT**, select it and click **End task**. Then start ChatGPT again and add the marketplace again.
+
 If your app has no **Add a marketplace**, run `codex plugin marketplace add nextra-studio/nextra-axisvm` in a terminal, restart the app, then install **NextraAxisVM** from the Plugins Directory.
 
 </details>
@@ -172,6 +174,7 @@ Open AxisVM yourself (any model, or an empty one), go to **Elements**, and click
 
 | Problem | Fix |
 |---|---|
+| Add marketplace fails in ChatGPT, or it says it cannot clone from Git | Close ChatGPT completely: open **Task Manager** (type it in the Windows search), search **ChatGPT**, click **End task**. Start ChatGPT again and add the marketplace again. |
 | "installing its Python environment" | First use. Wait 1–4 minutes, restart AxisVM, then go to **Elements** and click the **green Nextra “N” icon** before asking again. |
 | "AxisVM is running but the add-on is not loaded" | Go to **Elements** and click the **green Nextra “N” icon**, then retry. If the icon is missing, run `Setup.bat`, restart AxisVM, and click the icon in **Elements**. |
 | "not reachable" although AxisVM is open | First click the **green Nextra “N” icon** in **Elements** and retry. If it still fails, start AxisVM and the AI app at the same privilege level, normally both without administrator rights. |
