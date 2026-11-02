@@ -6,7 +6,7 @@ Six token-lean tools let an LLM read, build, analyse and change AxisVM models, i
 
 ## Install
 
-**About 5 minutes, no hassle:** add the plugin to your AI app, then double-click one setup file. Nothing to host, no extra subscription.
+**About 5 minutes, no hassle:** add the plugin to your AI app, then double-click one setup file. Nothing to host, no extra subscription: ChatGPT works on any plan, also the free one; Claude needs a paid plan (Pro or higher), because plug-ins run in Cowork.
 
 You need **Windows**, **AxisVM X7 or newer**, an **internet connection for setup**, and your AI desktop app.
 
@@ -28,6 +28,8 @@ The pictures are simplified guides of the app menus. Labels can vary by version.
 
 <details open>
 <summary><strong>ChatGPT / Codex desktop</strong></summary>
+
+**Plan:** any ChatGPT plan works, also the free one.
 
 **Find Plugins:** click the **Plugins icon** in the far-left navigation rail, then click **Add** at the top right.
 
@@ -73,6 +75,8 @@ Start a new session in **Work** (or Codex) on the desktop app. **Use Work, not C
 <details>
 <summary><strong>Claude Desktop</strong></summary>
 
+**Plan:** needs a paid Claude plan (Pro, Max, Team or Enterprise). Plug-ins run in **Cowork**, which the free plan does not have. No paid plan? Use ChatGPT.
+
 **Find Plugins:** **Customize** in the left sidebar → **Plugins** → **+ Add**.
 
 ![Claude: Customize, Plugins, Add](docs/img/install/claude-plugins.svg)
@@ -104,6 +108,8 @@ Start a new **Cowork** session. In the first message of each session, start with
 
 <details>
 <summary><strong>Claude Code</strong></summary>
+
+**Plan:** Claude Code needs a paid Claude plan (Pro or higher) or an API key.
 
 ```text
 claude plugin marketplace add nextra-studio/nextra-axisvm
