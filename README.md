@@ -53,8 +53,6 @@ The pictures are simplified guides of the app menus. Labels can vary by version.
 
 **Add marketplace fails or says it cannot clone from Git?** This sometimes happens in ChatGPT. Close ChatGPT completely: open **Task Manager** (type it in the Windows search), search **ChatGPT**, select it and click **End task**. Then start ChatGPT again and add the marketplace again.
 
-If your app has no **Add a marketplace**, run `codex plugin marketplace add nextra-studio/nextra-axisvm` in a terminal, restart the app, then install **NextraAxisVM** from the Plugins Directory.
-
 </details>
 
 <details>
