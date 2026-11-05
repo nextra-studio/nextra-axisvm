@@ -202,11 +202,22 @@ namespace AxisVM_plugin.Core
         public double B, H, T;
     }
 
+    /// <summary>A load group of the Rhino library (null values = AxisVM's own), from Nextra.Design (2026-11-05).</summary>
+    public class RhinoLibLoadGroup
+    {
+        public string Name = "", Type = "incidental";
+        public bool Exclusive;
+        public double? Psi0, Psi1, Psi2, GammaSup, GammaInf, Gamma;
+    }
+
     public class RhinoLibrary
     {
         public List<string> Materials = new List<string>();
         public List<RhinoLibSection> Sections = new List<RhinoLibSection>();
         public List<string> LoadCases = new List<string>();
+        /// <summary>Load groups and the group of each load case (by case name), from Nextra.Design's library (2026-11-05).</summary>
+        public List<RhinoLibLoadGroup> LoadGroups = new List<RhinoLibLoadGroup>();
+        public Dictionary<string, string> CaseGroup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         public RhinoLibSection FindSection(string name)
         {
@@ -446,7 +457,27 @@ namespace AxisVM_plugin.Core
                 {
                     string n = Get(cases.At(i), "name", "").Trim();
                     if (n.Length > 0) m.Library.LoadCases.Add(n);
+                    string grp = Get(cases.At(i), "group", "").Trim();
+                    if (n.Length > 0 && grp.Length > 0) m.Library.CaseGroup[n] = grp;
                 }
+
+            JsonValue groups = lib["loadGroups"];
+            if (groups != null && groups.Type == JsonValue.JsonType.Array)
+                for (int i = 0; i < groups.Count; i++)
+                {
+                    JsonValue g = groups.At(i);
+                    var lg = new RhinoLibLoadGroup { Name = Get(g, "name", "").Trim(), Type = Get(g, "type", "incidental").Trim(),
+                                                     Exclusive = string.Equals(Get(g, "exclusive", "false"), "true", StringComparison.OrdinalIgnoreCase) };
+                    lg.Psi0 = Num(g, "psi0"); lg.Psi1 = Num(g, "psi1"); lg.Psi2 = Num(g, "psi2");
+                    lg.GammaSup = Num(g, "gammaSup"); lg.GammaInf = Num(g, "gammaInf"); lg.Gamma = Num(g, "gamma");
+                    if (lg.Name.Length > 0) m.Library.LoadGroups.Add(lg);
+                }
+        }
+
+        private static double? Num(JsonValue obj, string key)
+        {
+            double v;
+            return double.TryParse(Get(obj, key, ""), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out v) ? v : (double?)null;
         }
 
         private static void ReadAttrs(JsonValue attrs, RhinoEntity target)

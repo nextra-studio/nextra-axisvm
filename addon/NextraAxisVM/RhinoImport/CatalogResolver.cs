@@ -470,6 +470,52 @@ namespace AxisVM_plugin.Core
             foreach (string name in library.LoadCases) LoadCase(name);
         }
 
+        /// <summary>2026-11-05 (Nextra plan v8 10.1): load groups of the Rhino library, found by name or created (type,
+        /// exclusive = gctExclusive, psi / gamma when given); 0 when the group cannot be made (the case is then ungrouped).</summary>
+        private readonly Dictionary<string, int> loadGroups = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        private int LoadGroup(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return 0;
+            int cached;
+            if (loadGroups.TryGetValue(name, out cached)) return cached;
+            RhinoLibLoadGroup def = library.LoadGroups.Find(g => string.Equals(g.Name, name, StringComparison.OrdinalIgnoreCase));
+            int id = 0;
+            try
+            {
+                for (int i = 1; i <= model.LoadGroups.Count; i++)
+                    if (string.Equals(model.LoadGroups.Item[i].Name, name, StringComparison.OrdinalIgnoreCase)) { id = i; break; }
+            }
+            catch { }
+            if (id <= 0 && def != null)
+            {
+                ELoadGroupType t = def.Type == "permanent" ? ELoadGroupType.lgtPermanent
+                    : def.Type == "seismic" ? ELoadGroupType.lgtSeismic
+                    : def.Type == "exceptional" ? ELoadGroupType.lgtExceptional
+                    : ELoadGroupType.lgtIncidental;          // wind / snow as incidental: their own types need AxisVM's generators
+                try { id = model.LoadGroups.Add(name, t, ELongBoolean.lbFalse, def.Exclusive ? EGroupCombinationType.gctExclusive : EGroupCombinationType.gctAdditive); }
+                catch { id = 0; }
+                if (id > 0)
+                {
+                    notes.Add(string.Format("Load group '{0}' was created.", name));
+                    try
+                    {
+                        var g = model.LoadGroups.Item[id];
+                        if (def.Psi0.HasValue) g.Psi0 = def.Psi0.Value;
+                        if (def.Psi1.HasValue) g.Psi1 = def.Psi1.Value;
+                        if (def.Psi2.HasValue) g.Psi2 = def.Psi2.Value;
+                        if (def.GammaSup.HasValue) g.GammaSup = def.GammaSup.Value;
+                        else if (def.Gamma.HasValue) g.GammaSup = def.Gamma.Value;
+                        if (def.GammaInf.HasValue) g.GammaInf = def.GammaInf.Value;
+                    }
+                    catch { notes.Add(string.Format("Load group '{0}': psi / gamma not set (AxisVM keeps its own).", name)); }
+                }
+                else notes.Add(string.Format("Load group '{0}' could not be created; its cases stay ungrouped.", name));
+            }
+            loadGroups[name] = id;
+            return id;
+        }
+
         /// <summary>
         /// Resolves a load case by name (case-insensitive), creating a standard case when it does not
         /// exist yet. AxisVM's load case collection has no IndexOf, so the lookup is a name scan.
@@ -489,8 +535,12 @@ namespace AxisVM_plugin.Core
 
                 if (id <= 0)
                 {
-                    try { id = model.LoadCases.Add(key, ELoadCaseType.lctStandard); } catch { id = 0; }
-                    if (id > 0) notes.Add(string.Format("Load case '{0}' was created.", key));
+                    string grp;
+                    int gid = library.CaseGroup.TryGetValue(key, out grp) ? LoadGroup(grp) : 0;     // 2026-11-05: in its load group
+                    try { id = gid > 0 ? model.LoadCases.AddWithGroup(key, ELoadCaseType.lctStandard, gid) : model.LoadCases.Add(key, ELoadCaseType.lctStandard); }
+                    catch { id = 0; }
+                    if (id <= 0 && gid > 0) { try { id = model.LoadCases.Add(key, ELoadCaseType.lctStandard); } catch { id = 0; } }
+                    if (id > 0) notes.Add(string.Format("Load case '{0}' was created{1}.", key, gid > 0 ? " in group '" + grp + "'" : ""));
                 }
             }
 
