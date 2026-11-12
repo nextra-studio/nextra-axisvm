@@ -33,7 +33,7 @@
       "Build a two-bay steel frame with a concrete slab in AxisVM and analyse it",
       "Check the model I have open in AxisVM and summarise the results"
     ],
-    "brandColor": "#1A7F37",
+    "brandColor": "#B5121B",
     "composerIcon": "./assets/icon.svg",
     "logo": "./assets/icon.svg"
   }

@@ -46,19 +46,29 @@ namespace NextraAxisVM
         {
             get
             {
-                // 16x16: a green "N" on a dark tile (same accent as NextraRhinoGh).
-                using (var bmp = new Bitmap(16, 16))
+                // 16x16: the red Nextra "N" (icon16.png, embedded). AxisVM wants a BMP with a colour key (magenta) and no
+                // alpha: transparent pixels become magenta, half-transparent edges are blended onto the toolbar grey so
+                // they do not show a pink fringe.
+                using (var bmp = new Bitmap(16, 16, System.Drawing.Imaging.PixelFormat.Format24bppRgb))
                 {
-                    using (var g = Graphics.FromImage(bmp))
+                    using (var g = Graphics.FromImage(bmp)) g.Clear(Color.Magenta);
+                    using (var s = typeof(NextraAxisVMAddon).Assembly.GetManifestResourceStream("NextraAxisVM.icon16.png"))
                     {
-                        g.Clear(Color.Magenta);
-                        using (var b = new SolidBrush(Color.FromArgb(26, 127, 55))) g.FillRectangle(b, 1, 1, 14, 14);
-                        using (var p = new Pen(Color.White, 2))
-                        {
-                            g.DrawLine(p, 5, 12, 5, 4);
-                            g.DrawLine(p, 5, 4, 11, 12);
-                            g.DrawLine(p, 11, 12, 11, 4);
-                        }
+                        if (s != null)
+                            using (var src = new Bitmap(s))
+                            {
+                                var bg = SystemColors.Control;
+                                for (int y = 0; y < 16 && y < src.Height; y++)
+                                    for (int x = 0; x < 16 && x < src.Width; x++)
+                                    {
+                                        var c = src.GetPixel(x, y);
+                                        if (c.A < 64) continue;
+                                        int a = c.A;
+                                        bmp.SetPixel(x, y, Color.FromArgb((c.R * a + bg.R * (255 - a)) / 255,
+                                                                          (c.G * a + bg.G * (255 - a)) / 255,
+                                                                          (c.B * a + bg.B * (255 - a)) / 255));
+                                    }
+                            }
                     }
                     using (var ms = new MemoryStream())
                     {

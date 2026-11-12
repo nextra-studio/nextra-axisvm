@@ -30,4 +30,8 @@
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Drawing" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- toolbar icon (red Nextra N), read in Addon_IconBitmap -->
+    <EmbeddedResource Include="icon16.png" LogicalName="NextraAxisVM.icon16.png" />
+  </ItemGroup>
 </Project>
