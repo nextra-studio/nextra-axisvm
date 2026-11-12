@@ -88,7 +88,7 @@ write(os.path.join(root, ".codex-plugin", "plugin.json"), {
         "developerName": "Tatsuki", "category": "Engineering", "capabilities": ["Read", "Write"], "websiteURL": home,
         "defaultPrompt": ["Build a two-bay steel frame with a concrete slab in AxisVM and analyse it",
                           "Check the model I have open in AxisVM and summarise the results"],
-        "brandColor": "#1A7F37", "composerIcon": "./assets/icon.svg", "logo": "./assets/icon.svg"}})
+        "brandColor": "#B5121B", "composerIcon": "./assets/icon.svg", "logo": "./assets/icon.svg"}})
 write(os.path.join(repo, ".agents", "plugins", "marketplace.json"), {
     "name": name, "interface": {"displayName": "NextraAxisVM"},
     "plugins": [{"name": name, "source": {"source": "local", "path": "./plugin/" + name},

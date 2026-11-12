@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="760" height="330" viewBox="0 0 760 330" role="img" aria-labelledby="title desc">
   <title id="title">Set up the AxisVM connection</title>
-  <desc id="desc">Download NextraAxisVM-Setup.zip. Extract All, open the extracted folder and run Setup.bat. Wait for setup to finish, then open AxisVM, go to Elements and click the green Nextra N icon to start linking.</desc>
+  <desc id="desc">Download NextraAxisVM-Setup.zip. Extract All, open the extracted folder and run Setup.bat. Wait for setup to finish, then open AxisVM, go to Elements and click the red Nextra N icon to start linking.</desc>
   <rect width="760" height="330" rx="16" fill="#f3f5f4"/>
   <g font-family="Segoe UI,Arial,sans-serif" fill="#172e38">
     <text x="30" y="42" font-size="22" font-weight="600">AxisVM setup, once per computer</text>
